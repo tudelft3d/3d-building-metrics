@@ -21,6 +21,8 @@ else:
 # mesh points
 vertices = np.array(verts)
 
+epointsListSemantics = {}
+
 print("id, actual volume, convex hull volume, area, ground area, wall area, roof area")
 for obj in cm["CityObjects"]:
     building = cm["CityObjects"][obj]
@@ -65,6 +67,8 @@ for obj in cm["CityObjects"]:
         "RoofSurface": 0
     }
 
+    epointsListSemantics[obj] = {"G": [], "R": []}
+
     if "semantics" in geom:
         # Compute area per surface type
         sized = dataset.compute_cell_sizes()
@@ -76,9 +80,15 @@ for obj in cm["CityObjects"]:
                 t = semantics["surfaces"][semantics["values"][i]]["type"]
             elif geom["type"] == "Solid":
                 t = semantics["surfaces"][semantics["values"][0][i]]["type"]
+
             if t in area:
                 area[t] = area[t] + surface_areas[i]
             else:
                 area[t] = surface_areas[i]
+
+            if t == "GroundSurface":
+                epointsListSemantics[obj]["G"].append([verts[v] for v in boundaries[i][0]])
+            elif t == "RoofSurface":
+                epointsListSemantics[obj]["R"].append([verts[v] for v in boundaries[i][0]])
 
     print(f"{obj}, {building['type']}, {dataset.volume}, {ch_volume}, {dataset.area}, {area['GroundSurface']}, {area['WallSurface']}, {area['RoofSurface']}")
