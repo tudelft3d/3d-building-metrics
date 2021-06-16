@@ -21,7 +21,7 @@ else:
 # mesh points
 vertices = np.array(verts)
 
-print("id, actual volume, convex hull volume, area")
+print("id, actual volume, convex hull volume, area, ground area, wall area, roof area")
 for obj in cm["CityObjects"]:
     building = cm["CityObjects"][obj]
 
@@ -49,10 +49,29 @@ for obj in cm["CityObjects"]:
     faces = np.hstack(f) 
 
     # Create the pyvista object
-    surf = pv.PolyData(vertices, faces)
+    dataset = pv.PolyData(vertices, faces)
 
     # Compute the convex hull volume
     points = [verts[i] for i in np.array(geom["boundaries"]).flatten()]
     ch_volume = ss.ConvexHull(points).volume
 
-    print(f"{obj}, {building['type']}, {surf.volume}, {ch_volume}, {surf.area}")
+    area = {
+        "GroundSurface": 0,
+        "WallSurface": 0,
+        "RoofSurface": 0
+    }
+
+    if "semantics" in geom:
+        # Compute area per surface type
+        sized = dataset.compute_cell_sizes()
+        surface_areas = sized.cell_arrays["Area"]
+        
+        semantics = geom["semantics"]
+        for i in range(len(surface_areas)):
+            t = semantics["surfaces"][semantics["values"][i]]["type"]
+            if t in area:
+                area[t] = area[t] + surface_areas[i]
+            else:
+                area[t] = surface_areas[i]
+
+    print(f"{obj}, {building['type']}, {dataset.volume}, {ch_volume}, {dataset.area}, {area['GroundSurface']}, {area['WallSurface']}, {area['RoofSurface']}")
