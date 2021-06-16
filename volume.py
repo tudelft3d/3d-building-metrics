@@ -24,6 +24,9 @@ print("id, actual volume, convex hull volume, area")
 for obj in cm["CityObjects"]:
     building = cm["CityObjects"][obj]
 
+    if not building["type"] in ["Building", "BuildingPart"]:
+        continue
+
     if not "geometry" in building or len(building["geometry"]) == 0:
         continue
 
@@ -44,4 +47,4 @@ for obj in cm["CityObjects"]:
 
     ch_volume = ss.ConvexHull([verts[i] for i in np.array(geom["boundaries"]).flatten()]).volume
 
-    print(f"{obj}, {surf.volume}, {ch_volume}, {surf.area}")
+    print(f"{obj}, {building['type']}, {surf.volume}, {ch_volume}, {surf.area}")
