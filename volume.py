@@ -1,5 +1,6 @@
 import numpy as np
 import pyvista as pv
+import scipy.spatial as ss
 import sys
 
 import json
@@ -19,7 +20,7 @@ else:
 # mesh points
 vertices = np.array(verts)
 
-print("id, volume, area")
+print("id, actual volume, convex hull volume, area")
 for obj in cm["CityObjects"]:
     building = cm["CityObjects"][obj]
 
@@ -41,4 +42,6 @@ for obj in cm["CityObjects"]:
 
     surf = pv.PolyData(vertices, faces)
 
-    print(f"{obj}, {surf.volume}, {surf.area}")
+    ch_volume = ss.ConvexHull([verts[i] for i in np.array(geom["boundaries"]).flatten()]).volume
+
+    print(f"{obj}, {surf.volume}, {ch_volume}, {surf.area}")
