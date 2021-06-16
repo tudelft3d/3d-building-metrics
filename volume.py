@@ -52,7 +52,8 @@ for obj in cm["CityObjects"]:
     dataset = pv.PolyData(vertices, faces)
 
     # Compute the convex hull volume
-    points = [verts[i] for i in np.array(geom["boundaries"]).flatten()]
+    f = [v for ring in geom["boundaries"] for v in ring[0]]
+    points = [verts[i] for i in f]
     ch_volume = ss.ConvexHull(points).volume
 
     area = {
@@ -68,7 +69,10 @@ for obj in cm["CityObjects"]:
         
         semantics = geom["semantics"]
         for i in range(len(surface_areas)):
-            t = semantics["surfaces"][semantics["values"][i]]["type"]
+            if geom["type"] == "MultiSurface":
+                t = semantics["surfaces"][semantics["values"][i]]["type"]
+            elif geom["type"] == "Solid":
+                t = semantics["surfaces"][semantics["values"][0][i]]["type"]
             if t in area:
                 area[t] = area[t] + surface_areas[i]
             else:
