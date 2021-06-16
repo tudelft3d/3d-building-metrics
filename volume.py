@@ -1,9 +1,10 @@
 import numpy as np
 import pyvista as pv
+import sys
 
 import json
 
-filename = "/Users/liberostelios/Dropbox/CityJSON/DenHaag/DenHaag_01.new.json"
+filename = sys.argv[1]
 
 with open(filename, 'r') as f:
     cm = json.load(f)
@@ -14,7 +15,6 @@ if "transform" in cm:
     verts = [[v[0] * s[0] + t[0], v[1] * s[1] + t[1], v[2] * s[2] + t[2]] for v in cm["vertices"]]
 else:
     verts = cm["vertices"]
-
 
 # mesh points
 vertices = np.array(verts)
