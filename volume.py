@@ -19,6 +19,7 @@ else:
 # mesh points
 vertices = np.array(verts)
 
+print("id, volume, area")
 for obj in cm["CityObjects"]:
     building = cm["CityObjects"][obj]
 
@@ -40,4 +41,4 @@ for obj in cm["CityObjects"]:
 
     surf = pv.PolyData(vertices, faces)
 
-    print(f"{obj}: {surf.volume}")
+    print(f"{obj}, {surf.volume}, {surf.area}")
