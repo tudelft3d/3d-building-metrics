@@ -52,7 +52,7 @@ for obj in cm["CityObjects"]:
     dataset = pv.PolyData(vertices, faces)
 
     # Compute the convex hull volume
-    f = [v for ring in geom["boundaries"] for v in ring[0]]
+    f = [v for ring in boundaries for v in ring[0]]
     points = [verts[i] for i in f]
     ch_volume = ss.ConvexHull(points).volume
 
