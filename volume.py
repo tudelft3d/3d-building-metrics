@@ -54,7 +54,10 @@ for obj in cm["CityObjects"]:
     # Compute the convex hull volume
     f = [v for ring in boundaries for v in ring[0]]
     points = [verts[i] for i in f]
-    ch_volume = ss.ConvexHull(points).volume
+    try:
+        ch_volume = ss.ConvexHull(points).volume
+    except:
+        ch_volume = 0
 
     area = {
         "GroundSurface": 0,
