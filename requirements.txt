@@ -1,3 +1,5 @@
 numpy
 pyvista
 scipy
+cython
+pymeshfix

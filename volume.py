@@ -2,8 +2,12 @@ import numpy as np
 import pyvista as pv
 import scipy.spatial as ss
 import sys
+from pymeshfix import MeshFix
 
 import json
+
+if len(sys.argv) < 2:
+    print("Gimme a file, or I'll skip you!")
 
 filename = sys.argv[1]
 
@@ -23,9 +27,12 @@ vertices = np.array(verts)
 
 epointsListSemantics = {}
 
-print("id, actual volume, convex hull volume, area, ground area, wall area, roof area")
+print("id, type, actual volume, convex hull volume, area, ground area, wall area, roof area")
 for obj in cm["CityObjects"]:
     building = cm["CityObjects"][obj]
+
+    if len(sys.argv) > 2 and obj != sys.argv[2]:
+        continue
 
     # TODO: Add options for all skip conditions below
 
@@ -52,6 +59,19 @@ for obj in cm["CityObjects"]:
 
     # Create the pyvista object
     dataset = pv.PolyData(vertices, faces)
+
+    mfix = MeshFix(dataset)
+    # mfix.repair()
+
+    holes = mfix.extract_holes()
+
+    plotter = pv.Plotter()
+    plotter.add_mesh(dataset, color=True)
+    plotter.add_mesh(holes, color='r', line_width=5)
+    plotter.enable_eye_dome_lighting() # helps depth perception
+    _ = plotter.show()
+
+    fixed = mfix.mesh
 
     # Compute the convex hull volume
     f = [v for ring in boundaries for v in ring[0]]
@@ -91,4 +111,4 @@ for obj in cm["CityObjects"]:
             elif t == "RoofSurface":
                 epointsListSemantics[obj]["R"].append([verts[v] for v in boundaries[i][0]])
 
-    print(f"{obj}, {building['type']}, {dataset.volume}, {ch_volume}, {dataset.area}, {area['GroundSurface']}, {area['WallSurface']}, {area['RoofSurface']}")
+    print(f"{obj}, {building['type']}, {fixed.volume}, {ch_volume}, {dataset.area}, {area['GroundSurface']}, {area['WallSurface']}, {area['RoofSurface']}")
