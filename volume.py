@@ -65,11 +65,11 @@ for obj in cm["CityObjects"]:
 
     holes = mfix.extract_holes()
 
-    plotter = pv.Plotter()
-    plotter.add_mesh(dataset, color=True)
-    plotter.add_mesh(holes, color='r', line_width=5)
-    plotter.enable_eye_dome_lighting() # helps depth perception
-    _ = plotter.show()
+    # plotter = pv.Plotter()
+    # plotter.add_mesh(dataset, color=True)
+    # plotter.add_mesh(holes, color='r', line_width=5)
+    # plotter.enable_eye_dome_lighting() # helps depth perception
+    # _ = plotter.show()
 
     fixed = mfix.mesh
 
