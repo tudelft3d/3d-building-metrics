@@ -15,6 +15,7 @@
 
 # Number of vertices
 # Number of surfaces
+# Number of vertices by type
 # Number of surfaces by type
 
 # Max height
@@ -30,11 +31,21 @@
 
 # Directionality of footprint
 # Directionality (?) of surfaces (normals)
+# Perimeter of footprint
 
 # Differences and perectages between volumes
 
+# Number of points of footprint
 # Shape complexity of footprint
 # Shape complexity in 3D
+# Spread points and compute the distance to the centroid
+
+# Shape metrics (for footprint or 3D):
+# Spin index (Σd²/n) (normalise by EAC)
+# Dispersion (Σd/n) (normalise by EAC)
+# Maximum spanning circle (aka girth index) (normalise by radius of EAC)
+# Elongation
+# Linearity
 
 # === City level analysis ===
 
