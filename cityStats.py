@@ -69,10 +69,31 @@ def to_polydata(geom, vertices):
 
     return pv.PolyData(vertices, faces)
 
-def get_feature_from_report(report, obj):
+def get_errors_from_report(report, objid, cm):
     """Return the report for the feature of the given obj"""
 
-    return {}
+    if not "features" in report:
+        return []
+    
+    fid = objid
+
+    obj = cm["CityObjects"][objid]
+    primidx = 0
+
+    if "parents" in obj:
+        parid = obj["parents"][0]
+
+        primidx = cm["CityObjects"][parid]["children"].index(objid)
+        fid = parid
+
+    for f in report["features"]:
+        if f["id"] == fid:
+            if "errors" in f["primitives"][primidx]:
+                return list(map(lambda e: e["code"], f["primitives"][primidx]["errors"]))
+            else:
+                return []
+
+    return []
 
 def validate_report(report, cm):
     """Returns true if the report is actually for this file"""
@@ -149,6 +170,8 @@ def main(input, output, val3dity_report, filter):
 
         area = get_area_by_surface(dataset, geom, vertices)
 
+        errors = get_errors_from_report(report, obj, cm)
+
         stats[obj] = [
             building["type"],
             fixed.volume,
@@ -156,15 +179,20 @@ def main(input, output, val3dity_report, filter):
             dataset.area,
             area["GroundSurface"],
             area["WallSurface"],
-            area["RoofSurface"]
+            area["RoofSurface"],
+            errors,
+            len(errors) == 0
         ]
 
-    columns = ["type", "actual volume", "convex hull volume", "area", "ground area", "wall area", "roof area"]
+    columns = ["type", "actual volume", "convex hull volume", "area", "ground area", "wall area", "roof area", "errors", "valid"]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
     df.index.name = "id"
 
-    df.to_csv(output)
+    if output is None:
+        print(df)
+    else:
+        df.to_csv(output)
 
 if __name__ == "__main__":
     main()
