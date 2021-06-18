@@ -46,18 +46,36 @@ def get_surface_boundaries(geom):
     else:
         raise Exception("Geometry not supported")
 
-def get_convexhull_volume(geom, verts):
-    """Returns the volume of the convex hull"""
+def get_points(geom, verts):
+    """Return the points of the geometry"""
 
     boundaries = get_surface_boundaries(geom)
 
     # Compute the convex hull volume
     f = [v for ring in boundaries for v in ring[0]]
     points = [verts[i] for i in f]
+
+    return points
+
+def get_convexhull_volume(points):
+    """Returns the volume of the convex hull"""
+
     try:
         return ss.ConvexHull(points).volume
     except:
         return 0
+
+def get_boundingbox_volume(points):
+    """Returns the volume of the bounding box"""
+    
+    minx = min(p[0] for p in points)
+    maxx = max(p[0] for p in points)
+    miny = min(p[1] for p in points)
+    maxy = max(p[1] for p in points)
+    minz = min(p[2] for p in points)
+    maxz = max(p[2] for p in points)
+
+    return (maxx - minx) * (maxy - miny) * (maxz - minz)
 
 def to_polydata(geom, vertices):
     """Returns the polydata mesh from a CityJSON geometry"""
@@ -164,9 +182,13 @@ def main(input, output, val3dity_report, filter):
         # plotter.enable_eye_dome_lighting() # helps depth perception
         # _ = plotter.show()
 
+        points = get_points(geom, vertices)
+
+        bb_volume = get_boundingbox_volume(points)
+
         fixed = mfix.mesh
 
-        ch_volume = get_convexhull_volume(geom, vertices)
+        ch_volume = get_convexhull_volume(points)
 
         area = get_area_by_surface(dataset, geom, vertices)
 
@@ -174,8 +196,11 @@ def main(input, output, val3dity_report, filter):
 
         stats[obj] = [
             building["type"],
+            len(points),
+            len(get_surface_boundaries(geom)),
             fixed.volume,
             ch_volume,
+            bb_volume,
             dataset.area,
             area["GroundSurface"],
             area["WallSurface"],
@@ -184,7 +209,7 @@ def main(input, output, val3dity_report, filter):
             len(errors) == 0
         ]
 
-    columns = ["type", "actual volume", "convex hull volume", "area", "ground area", "wall area", "roof area", "errors", "valid"]
+    columns = ["type", "point count", "surface count", "actual volume", "convex hull volume", "bounding box volume", "area", "ground area", "wall area", "roof area", "errors", "valid"]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
     df.index.name = "id"
@@ -205,10 +230,10 @@ if __name__ == "__main__":
 
 # Volume [X]
 # Volume of convex hull [X]
-# Volume of BB
+# Volume of BB [X]
 
-# Surface area
-# Surface area by semantic surface
+# Surface area [X]
+# Surface area by semantic surface [X]
 
 # Number of vertices
 # Number of surfaces
