@@ -20,5 +20,5 @@ Yeah:
 ```
 python -m venv venv
 pip install -r requirements.txt
-python volume.py [file_path] >> stats.csv
+python cityStats.py [file_path] -o [output.csv] [-v val3dity_report.json]
 ```
