@@ -4,3 +4,4 @@ scipy
 cython
 pymeshfix
 click
+pandas
