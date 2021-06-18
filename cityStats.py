@@ -197,14 +197,14 @@ def main(input, output, val3dity_report, filter):
 if __name__ == "__main__":
     main()
 
-# Run val3dity
+# Run val3dity [X]
 
 # === Per object ===
 
-# Object type
+# Object type [X]
 
-# Volume
-# Volume of convex hull
+# Volume [X]
+# Volume of convex hull [X]
 # Volume of BB
 
 # Surface area
