@@ -6,6 +6,69 @@ import scipy.spatial as ss
 from pymeshfix import MeshFix
 import pandas as pd
 
+def get_area_by_surface(dataset, geom, verts):
+    """Compute the area per semantic surface"""
+
+    area = {
+        "GroundSurface": 0,
+        "WallSurface": 0,
+        "RoofSurface": 0
+    }
+
+    epointsListSemantics = {"G": [], "R": []}
+
+    if "semantics" in geom:
+        # Compute area per surface type
+        sized = dataset.compute_cell_sizes()
+        surface_areas = sized.cell_arrays["Area"]
+        
+        semantics = geom["semantics"]
+        for i in range(len(surface_areas)):
+            if geom["type"] == "MultiSurface":
+                t = semantics["surfaces"][semantics["values"][i]]["type"]
+            elif geom["type"] == "Solid":
+                t = semantics["surfaces"][semantics["values"][0][i]]["type"]
+
+            if t in area:
+                area[t] = area[t] + surface_areas[i]
+            else:
+                area[t] = surface_areas[i]
+    
+    return area
+
+def get_surface_boundaries(geom):
+    """Returns the boundaries for all surfaces"""
+
+    if geom["type"] == "MultiSurface":
+        return geom["boundaries"]
+    elif geom["type"] == "Solid":
+        return geom["boundaries"][0]
+    else:
+        raise Exception("Geometry not supported")
+
+def get_convexhull_volume(geom, verts):
+    """Returns the volume of the convex hull"""
+
+    boundaries = get_surface_boundaries(geom)
+
+    # Compute the convex hull volume
+    f = [v for ring in boundaries for v in ring[0]]
+    points = [verts[i] for i in f]
+    try:
+        return ss.ConvexHull(points).volume
+    except:
+        return 0
+
+def to_polydata(geom, vertices):
+    """Returns the polydata mesh from a CityJSON geometry"""
+
+    boundaries = get_surface_boundaries(geom)
+
+    f = [[len(r[0])] + r[0] for r in [f for f in boundaries]]
+    faces = np.hstack(f) 
+
+    return pv.PolyData(vertices, faces)
+
 def get_feature_from_report(report, obj):
     """Return the report for the feature of the given obj"""
 
@@ -66,20 +129,8 @@ def main(input, output, val3dity_report, filter):
             continue
 
         geom = building["geometry"][0]
-
-        # Skip if the geometry type is not supported
-        if geom["type"] == "MultiSurface":
-            boundaries = geom["boundaries"]
-        elif geom["type"] == "Solid":
-            boundaries = geom["boundaries"][0]
-        else:
-            continue
-
-        f = [[len(r[0])] + r[0] for r in [f for f in boundaries]]
-        faces = np.hstack(f) 
-
-        # Create the pyvista object
-        dataset = pv.PolyData(vertices, faces)
+        
+        dataset = to_polydata(geom, vertices)
 
         mfix = MeshFix(dataset)
         # mfix.repair()
@@ -94,43 +145,9 @@ def main(input, output, val3dity_report, filter):
 
         fixed = mfix.mesh
 
-        # Compute the convex hull volume
-        f = [v for ring in boundaries for v in ring[0]]
-        points = [verts[i] for i in f]
-        try:
-            ch_volume = ss.ConvexHull(points).volume
-        except:
-            ch_volume = 0
+        ch_volume = get_convexhull_volume(geom, vertices)
 
-        area = {
-            "GroundSurface": 0,
-            "WallSurface": 0,
-            "RoofSurface": 0
-        }
-
-        epointsListSemantics[obj] = {"G": [], "R": []}
-
-        if "semantics" in geom:
-            # Compute area per surface type
-            sized = dataset.compute_cell_sizes()
-            surface_areas = sized.cell_arrays["Area"]
-            
-            semantics = geom["semantics"]
-            for i in range(len(surface_areas)):
-                if geom["type"] == "MultiSurface":
-                    t = semantics["surfaces"][semantics["values"][i]]["type"]
-                elif geom["type"] == "Solid":
-                    t = semantics["surfaces"][semantics["values"][0][i]]["type"]
-
-                if t in area:
-                    area[t] = area[t] + surface_areas[i]
-                else:
-                    area[t] = surface_areas[i]
-
-                if t == "GroundSurface":
-                    epointsListSemantics[obj]["G"].append([verts[v] for v in boundaries[i][0]])
-                elif t == "RoofSurface":
-                    epointsListSemantics[obj]["R"].append([verts[v] for v in boundaries[i][0]])
+        area = get_area_by_surface(dataset, geom, vertices)
 
         stats[obj] = [
             building["type"],
