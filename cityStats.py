@@ -6,10 +6,30 @@ import scipy.spatial as ss
 from pymeshfix import MeshFix
 import pandas as pd
 
+def add_value(dict, key, value):
+    """Does dict[key] = dict[key] + value"""
+
+    if key in dict:
+        dict[key] = dict[key] + value
+    else:
+        area[key] = value
+
 def get_area_by_surface(dataset, geom, verts):
     """Compute the area per semantic surface"""
 
     area = {
+        "GroundSurface": 0,
+        "WallSurface": 0,
+        "RoofSurface": 0
+    }
+
+    point_count = {
+        "GroundSurface": 0,
+        "WallSurface": 0,
+        "RoofSurface": 0
+    }
+
+    surface_count = {
         "GroundSurface": 0,
         "WallSurface": 0,
         "RoofSurface": 0
@@ -29,12 +49,11 @@ def get_area_by_surface(dataset, geom, verts):
             elif geom["type"] == "Solid":
                 t = semantics["surfaces"][semantics["values"][0][i]]["type"]
 
-            if t in area:
-                area[t] = area[t] + surface_areas[i]
-            else:
-                area[t] = surface_areas[i]
+            add_value(area, t, surface_areas[i])
+            add_value(point_count, t, sized.cell_n_points(i))
+            add_value(surface_count, t, 1)
     
-    return area
+    return area, point_count, surface_count
 
 def get_surface_boundaries(geom):
     """Returns the boundaries for all surfaces"""
@@ -190,7 +209,7 @@ def main(input, output, val3dity_report, filter):
 
         ch_volume = get_convexhull_volume(points)
 
-        area = get_area_by_surface(dataset, geom, vertices)
+        area, point_count, surface_count = get_area_by_surface(dataset, geom, vertices)
 
         errors = get_errors_from_report(report, obj, cm)
 
@@ -205,11 +224,36 @@ def main(input, output, val3dity_report, filter):
             area["GroundSurface"],
             area["WallSurface"],
             area["RoofSurface"],
+            point_count["GroundSurface"],
+            point_count["WallSurface"],
+            point_count["RoofSurface"],
+            surface_count["GroundSurface"],
+            surface_count["WallSurface"],
+            surface_count["RoofSurface"],
             errors,
             len(errors) == 0
         ]
 
-    columns = ["type", "point count", "surface count", "actual volume", "convex hull volume", "bounding box volume", "area", "ground area", "wall area", "roof area", "errors", "valid"]
+    columns = [
+        "type",
+        "point count",
+        "surface count",
+        "actual volume",
+        "convex hull volume",
+        "bounding box volume",
+        "area",
+        "ground area",
+        "wall area",
+        "roof area",
+        "ground point count",
+        "wall point count",
+        "roof point count",
+        "ground surface count",
+        "wall surface count",
+        "roof surface count",
+        "errors",
+        "valid"
+    ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
     df.index.name = "id"
@@ -235,8 +279,8 @@ if __name__ == "__main__":
 # Surface area [X]
 # Surface area by semantic surface [X]
 
-# Number of vertices
-# Number of surfaces
+# Number of vertices [X]
+# Number of surfaces [X]
 # Number of vertices by type
 # Number of surfaces by type
 
