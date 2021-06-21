@@ -6,6 +6,29 @@ import scipy.spatial as ss
 from pymeshfix import MeshFix
 import pandas as pd
 
+def get_stats(values, percentile = 90, percentage = 75):
+    """
+    Returns the stats (mean, median, max, min, range etc.) for a set of values.
+    
+    Author: Anna Labetski
+    """
+    hDic = {'Mean': np.mean(values), 'Median': np.median(values),
+    'Max': max(values), 'Min': min(values), 'Range': (max(values) - min(values)),
+    'Std': np.std(values)}
+    m = max([values.count(a) for a in values])
+    if percentile:
+        hDic['Percentile'] = np.percentile(values, percentile)
+    if percentage:
+        hDic['Percentage'] = (percentage/100.0) * hDic['Range'] + hDic['Min']
+    if m>1:
+        hDic['ModeStatus'] = 'Y'
+        modeCount = [x for x in values if values.count(x) == m][0]
+        hDic['Mode'] = modeCount
+    else:
+        hDic['ModeStatus'] = 'N'
+        hDic['Mode'] = np.mean(values)
+    return hDic
+
 def add_value(dict, key, value):
     """Does dict[key] = dict[key] + value"""
 
@@ -35,12 +58,14 @@ def get_area_by_surface(dataset, geom, verts):
         "RoofSurface": 0
     }
 
-    epointsListSemantics = {"G": [], "R": []}
+    semantic_points = {"G": [], "R": []}
 
     if "semantics" in geom:
         # Compute area per surface type
         sized = dataset.compute_cell_sizes()
         surface_areas = sized.cell_arrays["Area"]
+
+        boundaries = get_surface_boundaries(geom)
         
         semantics = geom["semantics"]
         for i in range(len(surface_areas)):
@@ -52,8 +77,11 @@ def get_area_by_surface(dataset, geom, verts):
             add_value(area, t, surface_areas[i])
             add_value(point_count, t, sized.cell_n_points(i))
             add_value(surface_count, t, 1)
+
+            if t in ["GroundSurface", "RoofSurface"]:
+                semantic_points["G" if t == "GroundSurface" else "R"].extend([verts[v] for v in boundaries[i][0]])
     
-    return area, point_count, surface_count
+    return area, point_count, surface_count, semantic_points
 
 def get_surface_boundaries(geom):
     """Returns the boundaries for all surfaces"""
@@ -209,7 +237,12 @@ def main(input, output, val3dity_report, filter):
 
         ch_volume = get_convexhull_volume(points)
 
-        area, point_count, surface_count = get_area_by_surface(dataset, geom, vertices)
+        area, point_count, surface_count, semantic_points = get_area_by_surface(dataset, geom, vertices)
+
+        roof_points = semantic_points["R"]
+
+        height_stats = get_stats([v[2] for v in roof_points])
+        ground_z = min([v[2] for v in semantic_points["G"]])
 
         errors = get_errors_from_report(report, obj, cm)
 
@@ -230,6 +263,14 @@ def main(input, output, val3dity_report, filter):
             surface_count["GroundSurface"],
             surface_count["WallSurface"],
             surface_count["RoofSurface"],
+            height_stats["Max"],
+            height_stats["Min"],
+            height_stats["Range"],
+            height_stats["Mean"],
+            height_stats["Median"],
+            height_stats["Std"],
+            height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
+            ground_z,
             errors,
             len(errors) == 0
         ]
@@ -251,6 +292,14 @@ def main(input, output, val3dity_report, filter):
         "ground surface count",
         "wall surface count",
         "roof surface count",
+        "max Z",
+        "min Z",
+        "height range",
+        "mean Z",
+        "median Z",
+        "std Z",
+        "mode Z",
+        "ground Z",
         "errors",
         "valid"
     ]
@@ -281,13 +330,13 @@ if __name__ == "__main__":
 
 # Number of vertices [X]
 # Number of surfaces [X]
-# Number of vertices by type
-# Number of surfaces by type
+# Number of vertices by type [X]
+# Number of surfaces by type [X]
 
-# Max height
-# Min height
-# Range (max-min)
-# Mean, median, mode
+# Max height [X]
+# Min height [X]
+# Range (max-min) [X]
+# Mean, median, std, mode [X]
 
 # Topology
 # Unique vertices
