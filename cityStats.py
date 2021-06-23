@@ -5,6 +5,109 @@ import pyvista as pv
 import scipy.spatial as ss
 from pymeshfix import MeshFix
 import pandas as pd
+import math
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+def get_wall_bearings(dataset, num_bins):
+    """Returns the bearings of the (vertical surfaces) of a dataset"""
+
+    normals = dataset.face_normals
+
+    n = num_bins * 2
+
+    bins = np.arange(n + 1) * 360 / n
+
+    wall_idxs = [n[2] == 0 for n in normals]
+
+    normals = [n for n in normals if n[2] == 0]
+
+    azimuth = [get_point_azimuth(n) for n in normals]
+
+    sized = dataset.compute_cell_sizes()
+    surface_areas = sized.cell_arrays["Area"][wall_idxs]
+
+    count, bin_edges = np.histogram(azimuth, bins=bins, weights=surface_areas)
+
+    # move last bin to front, so eg 0.01° and 359.99° will be binned together
+    count = np.roll(count, 1)
+    bin_counts = count[::2] + count[1::2]
+
+    # because we merged the bins, their edges are now only every other one
+    bin_edges = bin_edges[range(0, len(bin_edges), 2)]
+
+    return bin_counts, bin_edges
+
+def plot_orientations(
+    bin_counts,
+    bin_edges,
+    num_bins=36,
+    title=None,
+    title_y=1.05,
+    title_font=None
+):
+    if title_font is None:
+        title_font = {"family": "DejaVu Sans", "size": 12, "weight": "bold"}
+
+    width = 2 * np.pi / num_bins
+
+    positions = np.radians(bin_edges[:-1])
+
+    radius = bin_counts / bin_counts.sum()
+
+    fig, ax = plt.subplots(figsize=(5, 5), subplot_kw={"projection": "polar"})
+    ax.set_theta_zero_location("N")
+    ax.set_theta_direction("clockwise")
+    ax.set_ylim(top=radius.max())
+
+    # configure the y-ticks and remove their labels
+    ax.set_yticks(np.linspace(0, radius.max(), 5))
+    ax.set_yticklabels(labels="")
+
+    # configure the x-ticks and their labels
+    xticklabels = ["N", "", "E", "", "S", "", "W", ""]
+    ax.set_xticks(ax.get_xticks())
+    ax.set_xticklabels(labels=xticklabels)
+    ax.tick_params(axis="x", which="major", pad=-2)
+
+    # draw the bars
+    ax.bar(
+        positions,
+        height=radius,
+        width=width,
+        align="center",
+        bottom=0,
+        zorder=2
+    )
+
+    if title:
+        ax.set_title(title, y=title_y, fontdict=title_font)
+
+    plt.show()
+
+def get_surface_plot(
+    dataset,
+    num_bins=36,
+    title=None,
+    title_y=1.05,
+    title_font=None
+):
+    """Prints a plot for the surface normals of a polyData"""
+    
+    bin_counts, bin_edges = get_wall_bearings(dataset, num_bins)
+
+    plot_orientations(bin_counts, bin_edges)
+    
+
+def get_azimuth(dx, dy):
+    """Returns the azimuth angle for the given coordinates"""
+    
+    return (math.atan2(dx, dy) * 180 / np.pi) % 360
+
+def get_point_azimuth(p):
+    """Returns the azimuth angle of the given point"""
+
+    return get_azimuth(p[0], p[1])
 
 def get_stats(values, percentile = 90, percentage = 75):
     """
@@ -198,7 +301,9 @@ def main(input, output, val3dity_report, filter):
 
     stats = {}
 
-    for obj in cm["CityObjects"]:
+    total_count = np.zeros(36)
+
+    for obj in tqdm(cm["CityObjects"]):
         building = cm["CityObjects"][obj]
 
         if not filter is None and filter != obj:
@@ -218,10 +323,18 @@ def main(input, output, val3dity_report, filter):
         
         dataset = to_polydata(geom, vertices)
 
-        mfix = MeshFix(dataset)
+        # dataset.plot()
+
+        # get_surface_plot(dataset, title=obj)
+
+        bin_count, bin_edges = get_wall_bearings(dataset, 36)
+
+        total_count = total_count + bin_count
+
+        # mfix = MeshFix(dataset)
         # mfix.repair()
 
-        holes = mfix.extract_holes()
+        # holes = mfix.extract_holes()
 
         # plotter = pv.Plotter()
         # plotter.add_mesh(dataset, color=True)
@@ -233,7 +346,7 @@ def main(input, output, val3dity_report, filter):
 
         bb_volume = get_boundingbox_volume(points)
 
-        fixed = mfix.mesh
+        fixed = dataset
 
         ch_volume = get_convexhull_volume(points)
 
@@ -241,8 +354,12 @@ def main(input, output, val3dity_report, filter):
 
         roof_points = semantic_points["R"]
 
-        height_stats = get_stats([v[2] for v in roof_points])
-        ground_z = min([v[2] for v in semantic_points["G"]])
+        if len(roof_points) == 0:
+            height_stats = get_stats([0])
+            ground_z = 0
+        else:
+            height_stats = get_stats([v[2] for v in roof_points])
+            ground_z = min([v[2] for v in semantic_points["G"]])
 
         errors = get_errors_from_report(report, obj, cm)
 
@@ -274,6 +391,8 @@ def main(input, output, val3dity_report, filter):
             errors,
             len(errors) == 0
         ]
+    
+    plot_orientations(total_count, bin_edges)
 
     columns = [
         "type",
@@ -346,6 +465,7 @@ if __name__ == "__main__":
 
 # Directionality of footprint
 # Directionality (?) of surfaces (normals)
+# Perimeter of roofprint
 # Perimeter of footprint
 
 # Differences and perectages between volumes
@@ -355,12 +475,19 @@ if __name__ == "__main__":
 # Shape complexity in 3D
 # Spread points and compute the distance to the centroid
 
+# Values for directionality graph of wall surfaces
+# Values for zenith angles of roof surfaces
+
 # Shape metrics (for footprint or 3D):
 # Spin index (Σd²/n) (normalise by EAC)
 # Dispersion (Σd/n) (normalise by EAC)
 # Maximum spanning circle (aka girth index) (normalise by radius of EAC)
 # Elongation
 # Linearity
+
+# === Building level (hierarchy) analysis ===
+
+# Aggregate stats for buildings
 
 # === City level analysis ===
 
@@ -371,3 +498,6 @@ if __name__ == "__main__":
 # Clusters of height range
 
 # Connected components
+
+# Directionality graph for orienation (wall surfaces)
+# Zenith graph for roof surfaces (could describe the type of roof)

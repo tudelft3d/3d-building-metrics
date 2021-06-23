@@ -5,3 +5,4 @@ cython
 pymeshfix
 click
 pandas
+tqdm
