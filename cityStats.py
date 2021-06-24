@@ -358,7 +358,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
     stats = {}
 
-    total_count = np.zeros(36)
+    total_xy = np.zeros(36)
+    total_xz = np.zeros(36)
+    total_yz = np.zeros(36)
 
     for obj in tqdm(cm["CityObjects"]):
         building = cm["CityObjects"][obj]
@@ -382,7 +384,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         if plot_buildings:
             print(f"Plotting {obj}")
-            dataset.plot(scalars=np.arange(len(get_surface_boundaries(geom))))
+            dataset.plot()
 
         # get_surface_plot(dataset, title=obj)
 
@@ -392,7 +394,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         # plot_orientations(xzc, be, title=f"XZ orientation [{obj}]")
         # plot_orientations(yzc, be, title=f"YZ orientation [{obj}]")
 
-        total_count = total_count + bin_count
+        total_xy = total_xy + bin_count
+        total_xz = total_xz + xzc
+        total_yz = total_yz + yzc
 
         if repair:
             mfix = MeshFix(dataset)
@@ -460,7 +464,10 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             len(errors) == 0
         ]
     
-    plot_orientations(total_count, bin_edges, title="Orientation plot")
+    plot_orientations(total_xy, bin_edges, title="Orientation plot")
+    plot_orientations(total_xz, bin_edges, title="XZ plot")
+    plot_orientations(total_yz, bin_edges, title="YZ plot")
+
 
     columns = [
         "type",
@@ -534,7 +541,7 @@ if __name__ == "__main__":
 # Height difference between adjacent buildings
 
 # Directionality of footprint
-# Directionality (?) of surfaces (normals)
+# Directionality (?) of surfaces (normals) [X]
 # Perimeter of roofprint
 # Perimeter of footprint
 
