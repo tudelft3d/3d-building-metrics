@@ -497,35 +497,35 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
 
     columns = [
-        "type",
-        "point count",
-        "surface count",
-        "actual volume",
-        "convex hull volume",
-        "bounding box volume",
-        "footprint perimeter",
-        "area",
-        "ground area",
-        "wall area",
-        "roof area",
-        "ground point count",
-        "wall point count",
-        "roof point count",
-        "ground surface count",
-        "wall surface count",
-        "roof surface count",
-        "max Z",
-        "min Z",
-        "height range",
-        "mean Z",
-        "median Z",
-        "std Z",
-        "mode Z",
-        "ground Z",
-        "orientation_values",
-        "orientaiton_edges",
-        "errors",
-        "valid"
+        "type", # type of the city object
+        "point count", # total number of points in the city object
+        "surface count", # total number of surfaces in the city object
+        "actual volume", # volume of the geometry of city object
+        "convex hull volume", # volume of the convex hull of the city object
+        "bounding box volume", # volume of the axis-aligned bounding box of the city object
+        "footprint perimeter", # perimeter of the footpring of the city object
+        "surface area", # total area of all surfaces of the city object
+        "ground area", # area of all ground surfaces of the city object
+        "wall area", # area of all wall surfaces of the city object
+        "roof area", # area of all roof surfaces of the city object
+        "ground point count", # number of points in ground surfaces
+        "wall point count", # number of point in wall surfaces
+        "roof point count", # number of point in roof surfaces
+        "ground surface count", # number of ground surfaces
+        "wall surface count", # number of wall surfaces
+        "roof surface count", # number of roof surfaces
+        "max Z", # maximum Z of roof points
+        "min Z", # minimum Z of roof points
+        "height range", # height range of roof points (ie, max - min)
+        "mean Z", # mean Z of roof points
+        "median Z", # median Z of roof points
+        "std Z", # standard deviation of Z of roof points
+        "mode Z", # mode of Z of roof points
+        "ground Z", # Z value of the ground points
+        "orientation_values", # values of orientation plot of wall surfaces normals
+        "orientaiton_edges", # edges of orientation plot of wall surfaces normals
+        "errors", # error codes from val3dity for the city object
+        "valid" # validity of the city object
     ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
