@@ -6,3 +6,4 @@ pymeshfix
 click
 pandas
 tqdm
+shapely

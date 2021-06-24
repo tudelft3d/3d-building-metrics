@@ -8,6 +8,7 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from shapely.geometry import MultiPolygon, Polygon
 
 surface_types = ["WallSurface", "RoofSurface", "GroundSurface"]
 
@@ -292,6 +293,29 @@ def to_polydata(geom, vertices):
     
     return mesh
 
+def to_shapely(geom, vertices):
+    """Returns a shapely geometry of the footprint from a CityJSON geometry"""
+
+    boundaries = get_surface_boundaries(geom)
+
+    if "semantics" in geom:
+        semantics = geom["semantics"]
+        if geom["type"] == "MultiSurface":
+            values = semantics["values"]
+        else:
+            values = semantics["values"][0]
+        
+        ground_idxs = [semantics["surfaces"][i]["type"] == "GroundSurface" for i in values]
+
+        boundaries = np.array(boundaries)[ground_idxs]
+    
+    shape = MultiPolygon([Polygon([vertices[v] for v in boundary[0]]) for boundary in boundaries])
+
+    shape = shape.buffer(0)
+    
+    return shape
+        
+
 def get_errors_from_report(report, objid, cm):
     """Return the report for the feature of the given obj"""
 
@@ -430,6 +454,8 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         else:
             height_stats = get_stats([v[2] for v in roof_points])
             ground_z = min([v[2] for v in semantic_points["G"]])
+        
+        shape = to_shapely(geom, vertices)
 
         errors = get_errors_from_report(report, obj, cm)
 
@@ -440,6 +466,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             fixed.volume,
             ch_volume,
             bb_volume,
+            shape.length,
             dataset.area,
             area["GroundSurface"],
             area["WallSurface"],
@@ -476,6 +503,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "actual volume",
         "convex hull volume",
         "bounding box volume",
+        "footprint perimeter",
         "area",
         "ground area",
         "wall area",
