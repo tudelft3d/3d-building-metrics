@@ -9,25 +9,16 @@ import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-def get_wall_bearings(dataset, num_bins):
-    """Returns the bearings of the (vertical surfaces) of a dataset"""
+surface_types = ["WallSurface", "RoofSurface", "GroundSurface"]
 
-    normals = dataset.face_normals
+def get_bearings(values, num_bins, weights):
+    """Divides the values depending on the bins"""
 
     n = num_bins * 2
 
     bins = np.arange(n + 1) * 360 / n
 
-    wall_idxs = [n[2] == 0 for n in normals]
-
-    normals = [n for n in normals if n[2] == 0]
-
-    azimuth = [get_point_azimuth(n) for n in normals]
-
-    sized = dataset.compute_cell_sizes()
-    surface_areas = sized.cell_arrays["Area"][wall_idxs]
-
-    count, bin_edges = np.histogram(azimuth, bins=bins, weights=surface_areas)
+    count, bin_edges = np.histogram(values, bins=bins, weights=weights)
 
     # move last bin to front, so eg 0.01° and 359.99° will be binned together
     count = np.roll(count, 1)
@@ -37,6 +28,49 @@ def get_wall_bearings(dataset, num_bins):
     bin_edges = bin_edges[range(0, len(bin_edges), 2)]
 
     return bin_counts, bin_edges
+
+def get_wall_bearings(dataset, num_bins):
+    """Returns the bearings of the azimuth angle of the normals for vertical
+    surfaces of a dataset"""
+
+    normals = dataset.face_normals
+
+    if "semantics" in dataset.cell_arrays:
+        wall_idxs = [s == surface_types.index("WallSurface") for s in dataset.cell_arrays["semantics"]]
+    else:
+        wall_idxs = [n[2] == 0 for n in normals]
+
+    normals = normals[wall_idxs]
+
+    azimuth = [get_point_azimuth(n) for n in normals]
+
+    sized = dataset.compute_cell_sizes()
+    surface_areas = sized.cell_arrays["Area"][wall_idxs]
+
+    return get_bearings(azimuth, num_bins, surface_areas)
+
+def get_roof_bearings(dataset, num_bins):
+    """Returns the bearings of the (vertical surfaces) of a dataset"""
+
+    normals = dataset.face_normals
+
+    if "semantics" in dataset.cell_arrays:
+        roof_idxs = [s == surface_types.index("RoofSurface") for s in dataset.cell_arrays["semantics"]]
+    else:
+        roof_idxs = [n[2] > 0 for n in normals]
+
+    normals = normals[roof_idxs]
+
+    xz_angle = [get_azimuth(n[0], n[2]) for n in normals]
+    yz_angle = [get_azimuth(n[1], n[2]) for n in normals]
+
+    sized = dataset.compute_cell_sizes()
+    surface_areas = sized.cell_arrays["Area"][roof_idxs]
+
+    xz_counts, bin_edges = get_bearings(xz_angle, num_bins, surface_areas)
+    yz_counts, bin_edges = get_bearings(yz_angle, num_bins, surface_areas)
+
+    return xz_counts, yz_counts, bin_edges
 
 def plot_orientations(
     bin_counts,
@@ -108,6 +142,16 @@ def get_point_azimuth(p):
     """Returns the azimuth angle of the given point"""
 
     return get_azimuth(p[0], p[1])
+
+def get_point_zenith(p):
+    """Return the zenith angle of the given 3d point"""
+
+    z = [0.0, 0.0, 1.0]
+
+    cosine_angle = np.dot(p, z) / (np.linalg.norm(p) * np.linalg.norm(z))
+    angle = np.arccos(cosine_angle)
+
+    return (angle * 180 / np.pi) % 360
 
 def get_stats(values, percentile = 90, percentage = 75):
     """
@@ -233,9 +277,20 @@ def to_polydata(geom, vertices):
     boundaries = get_surface_boundaries(geom)
 
     f = [[len(r[0])] + r[0] for r in [f for f in boundaries]]
-    faces = np.hstack(f) 
+    faces = np.hstack(f)
 
-    return pv.PolyData(vertices, faces)
+    mesh = pv.PolyData(vertices, faces, n_faces=len(boundaries))
+
+    if "semantics" in geom:        
+        semantics = geom["semantics"]
+        if geom["type"] == "MultiSurface":
+            values = semantics["values"]
+        else:
+            values = semantics["values"][0]
+        
+        mesh.cell_arrays["semantics"] = [surface_types.index(semantics["surfaces"][i]["type"]) for i in values]
+    
+    return mesh
 
 def get_errors_from_report(report, objid, cm):
     """Return the report for the feature of the given obj"""
@@ -274,7 +329,9 @@ def validate_report(report, cm):
 @click.option('-o', '--output', type=click.File("wb"))
 @click.option('-v', '--val3dity-report', type=click.File("rb"))
 @click.option('-f', '--filter')
-def main(input, output, val3dity_report, filter):
+@click.option('-r', '--repair', flag_value=True)
+@click.option('-p', '--plot-buildings', flag_value=True)
+def main(input, output, val3dity_report, filter, repair, plot_buildings):
     cm = json.load(input)
 
     if "transform" in cm:
@@ -323,16 +380,27 @@ def main(input, output, val3dity_report, filter):
         
         dataset = to_polydata(geom, vertices)
 
-        # dataset.plot()
+        if plot_buildings:
+            print(f"Plotting {obj}")
+            dataset.plot(scalars=np.arange(len(get_surface_boundaries(geom))))
 
         # get_surface_plot(dataset, title=obj)
 
         bin_count, bin_edges = get_wall_bearings(dataset, 36)
 
+        xzc, yzc, be = get_roof_bearings(dataset, 36)
+        # plot_orientations(xzc, be, title=f"XZ orientation [{obj}]")
+        # plot_orientations(yzc, be, title=f"YZ orientation [{obj}]")
+
         total_count = total_count + bin_count
 
-        # mfix = MeshFix(dataset)
-        # mfix.repair()
+        if repair:
+            mfix = MeshFix(dataset)
+            mfix.repair()
+
+            fixed = mfix.mesh
+        else:
+            fixed = dataset
 
         # holes = mfix.extract_holes()
 
@@ -345,8 +413,6 @@ def main(input, output, val3dity_report, filter):
         points = get_points(geom, vertices)
 
         bb_volume = get_boundingbox_volume(points)
-
-        fixed = dataset
 
         ch_volume = get_convexhull_volume(points)
 
@@ -388,11 +454,13 @@ def main(input, output, val3dity_report, filter):
             height_stats["Std"],
             height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
             ground_z,
+            bin_count,
+            bin_edges,
             errors,
             len(errors) == 0
         ]
     
-    plot_orientations(total_count, bin_edges)
+    plot_orientations(total_count, bin_edges, title="Orientation plot")
 
     columns = [
         "type",
@@ -419,6 +487,8 @@ def main(input, output, val3dity_report, filter):
         "std Z",
         "mode Z",
         "ground Z",
+        "orientation_values",
+        "orientaiton_edges",
         "errors",
         "valid"
     ]
@@ -501,3 +571,5 @@ if __name__ == "__main__":
 
 # Directionality graph for orienation (wall surfaces)
 # Zenith graph for roof surfaces (could describe the type of roof)
+
+# Graph of roof slope with respect to the closest road centreline
