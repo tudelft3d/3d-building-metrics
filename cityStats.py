@@ -9,6 +9,7 @@ import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from shapely.geometry import MultiPolygon, Polygon
+from helpers.minimumBoundingBox import MinimumBoundingBox
 
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
@@ -321,7 +322,26 @@ def to_shapely(geom, vertices):
     shape = shape.buffer(0)
     
     return shape
-        
+
+def get_oriented_bounding_box(dataset, fix=True):
+    """Return the oriented bounding box of the PolyData (only works for vertical
+    objects)
+    """
+    
+    obb_2d = MinimumBoundingBox([(p[0], p[1]) for p in dataset.clean().points])
+
+    ground_z = np.min(dataset.clean().points[:, 2])
+    height = np.max(dataset.clean().points[:, 2]) - ground_z
+    box = np.array([[p[0], p[1], ground_z] for p in list(obb_2d.corner_points)])
+
+    obb = pv.PolyData(box).delaunay_2d().extrude([0.0, 0.0, height])
+
+    if fix:
+        m = MeshFix(obb.clean().triangulate())
+        m.repair()
+        obb = m.mesh
+
+    return obb
 
 def get_errors_from_report(report, objid, cm):
     """Return the report for the feature of the given obj"""
@@ -393,7 +413,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    for obj in tqdm(cm["CityObjects"]):
+    for obj in cm["CityObjects"]:
         building = cm["CityObjects"][obj]
 
         if not filter is None and filter != obj:
@@ -449,7 +469,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         points = get_points(geom, vertices)
 
-        bb_volume = get_boundingbox_volume(points)
+        aabb_volume = get_boundingbox_volume(points)
 
         ch_volume = get_convexhull_volume(points)
 
@@ -457,6 +477,8 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         roof_points = get_points_of_type(mesh, "RoofSurface")
         ground_points = get_points_of_type(mesh, "GroundSurface")
+
+        obb = get_oriented_bounding_box(mesh)
 
         if len(roof_points) == 0:
             height_stats = get_stats([0])
@@ -475,7 +497,8 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             len(get_surface_boundaries(geom)),
             fixed.volume,
             ch_volume,
-            bb_volume,
+            obb.volume,
+            aabb_volume,
             shape.length,
             mesh.area,
             area["GroundSurface"],
@@ -512,7 +535,8 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "surface count", # total number of surfaces in the city object
         "actual volume", # volume of the geometry of city object
         "convex hull volume", # volume of the convex hull of the city object
-        "bounding box volume", # volume of the axis-aligned bounding box of the city object
+        "obb volume", # volume of the oriented bounding box of the city object
+        "aabb volume", # volume of the axis-aligned bounding box of the city object
         "footprint perimeter", # perimeter of the footpring of the city object
         "surface area", # total area of all surfaces of the city object
         "ground area", # area of all ground surfaces of the city object
@@ -581,17 +605,17 @@ if __name__ == "__main__":
 # Directionality of footprint
 # Directionality (?) of surfaces (normals) [X]
 # Perimeter of roofprint
-# Perimeter of footprint
+# Perimeter of footprint [X]
 
 # Differences and perectages between volumes
 
-# Number of points of footprint
+# Number of points of footprint [X]
 # Shape complexity of footprint
 # Shape complexity in 3D
 # Spread points and compute the distance to the centroid
 
-# Values for directionality graph of wall surfaces
-# Values for zenith angles of roof surfaces
+# Values for directionality graph of wall surfaces [X]
+# Values for zenith angles of roof surfaces [X]
 
 # Shape metrics (for footprint or 3D):
 # Spin index (Σd²/n) (normalise by EAC)
@@ -614,7 +638,7 @@ if __name__ == "__main__":
 
 # Connected components
 
-# Directionality graph for orienation (wall surfaces)
-# Zenith graph for roof surfaces (could describe the type of roof)
+# Directionality graph for orienation (wall surfaces) [X]
+# Zenith graph for roof surfaces (could describe the type of roof) [X]
 
 # Graph of roof slope with respect to the closest road centreline
