@@ -7,3 +7,4 @@ click
 pandas
 tqdm
 shapely
+jupyter
