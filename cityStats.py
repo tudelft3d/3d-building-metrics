@@ -10,8 +10,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from shapely.geometry import MultiPolygon, Polygon
 
-surface_types = ["WallSurface", "RoofSurface", "GroundSurface"]
-
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
 
@@ -37,7 +35,7 @@ def get_wall_bearings(dataset, num_bins):
     normals = dataset.face_normals
 
     if "semantics" in dataset.cell_arrays:
-        wall_idxs = [s == surface_types.index("WallSurface") for s in dataset.cell_arrays["semantics"]]
+        wall_idxs = [s == "WallSurface" for s in dataset.cell_arrays["semantics"]]
     else:
         wall_idxs = [n[2] == 0 for n in normals]
 
@@ -56,7 +54,7 @@ def get_roof_bearings(dataset, num_bins):
     normals = dataset.face_normals
 
     if "semantics" in dataset.cell_arrays:
-        roof_idxs = [s == surface_types.index("RoofSurface") for s in dataset.cell_arrays["semantics"]]
+        roof_idxs = [s == "RoofSurface" for s in dataset.cell_arrays["semantics"]]
     else:
         roof_idxs = [n[2] > 0 for n in normals]
 
@@ -185,7 +183,7 @@ def add_value(dict, key, value):
     else:
         area[key] = value
 
-def get_area_by_surface(dataset, geom, verts):
+def get_area_by_surface(mesh, tri_mesh=None):
     """Compute the area per semantic surface"""
 
     area = {
@@ -206,30 +204,39 @@ def get_area_by_surface(dataset, geom, verts):
         "RoofSurface": 0
     }
 
-    semantic_points = {"G": [], "R": []}
+    # Compute the triangulated surfaces to fix issues with areas
+    if tri_mesh is None:
+        tri_mesh = mesh.triangulate()
 
-    if "semantics" in geom:
+    if "semantics" in mesh.cell_arrays:
         # Compute area per surface type
-        sized = dataset.compute_cell_sizes()
+        sized = tri_mesh.compute_cell_sizes()
         surface_areas = sized.cell_arrays["Area"]
 
-        boundaries = get_surface_boundaries(geom)
-        
-        semantics = geom["semantics"]
-        for i in range(len(surface_areas)):
-            if geom["type"] == "MultiSurface":
-                t = semantics["surfaces"][semantics["values"][i]]["type"]
-            elif geom["type"] == "Solid":
-                t = semantics["surfaces"][semantics["values"][0][i]]["type"]
+        points_per_cell = np.array([mesh.cell_n_points(i) for i in range(mesh.number_of_cells)])
 
-            add_value(area, t, surface_areas[i])
-            add_value(point_count, t, sized.cell_n_points(i))
-            add_value(surface_count, t, 1)
+        for surface_type in area:
+            triangle_idxs = [s == surface_type for s in tri_mesh.cell_arrays["semantics"]]
+            area[surface_type] = sum(surface_areas[triangle_idxs])
 
-            if t in ["GroundSurface", "RoofSurface"]:
-                semantic_points["G" if t == "GroundSurface" else "R"].extend([verts[v] for v in boundaries[i][0]])
+            face_idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
+
+            point_count[surface_type] = sum(points_per_cell[face_idxs])
+            surface_count[surface_type] = sum(face_idxs)
     
-    return area, point_count, surface_count, semantic_points
+    return area, point_count, surface_count
+
+def get_points_of_type(mesh, surface_type):
+    """Returns the points that belong to the given surface type"""
+
+    if not "semantics":
+        return 0
+    
+    idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
+
+    points = np.array([mesh.cell_points(i) for i in range(mesh.number_of_cells)])
+
+    return np.vstack(points[idxs])
 
 def get_surface_boundaries(geom):
     """Returns the boundaries for all surfaces"""
@@ -289,7 +296,7 @@ def to_polydata(geom, vertices):
         else:
             values = semantics["values"][0]
         
-        mesh.cell_arrays["semantics"] = [surface_types.index(semantics["surfaces"][i]["type"]) for i in values]
+        mesh.cell_arrays["semantics"] = [semantics["surfaces"][i]["type"] for i in values]
     
     return mesh
 
@@ -404,17 +411,19 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         geom = building["geometry"][0]
         
-        dataset = to_polydata(geom, vertices)
+        mesh = to_polydata(geom, vertices)
+
+        tri_mesh = mesh.triangulate()
 
         if plot_buildings:
             print(f"Plotting {obj}")
-            dataset.plot()
+            tri_mesh.plot()
 
         # get_surface_plot(dataset, title=obj)
 
-        bin_count, bin_edges = get_wall_bearings(dataset, 36)
+        bin_count, bin_edges = get_wall_bearings(mesh, 36)
 
-        xzc, yzc, be = get_roof_bearings(dataset, 36)
+        xzc, yzc, be = get_roof_bearings(mesh, 36)
         # plot_orientations(xzc, be, title=f"XZ orientation [{obj}]")
         # plot_orientations(yzc, be, title=f"YZ orientation [{obj}]")
 
@@ -423,12 +432,12 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         total_yz = total_yz + yzc
 
         if repair:
-            mfix = MeshFix(dataset)
+            mfix = MeshFix(mesh)
             mfix.repair()
 
             fixed = mfix.mesh
         else:
-            fixed = dataset
+            fixed = tri_mesh
 
         # holes = mfix.extract_holes()
 
@@ -444,16 +453,17 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         ch_volume = get_convexhull_volume(points)
 
-        area, point_count, surface_count, semantic_points = get_area_by_surface(dataset, geom, vertices)
+        area, point_count, surface_count = get_area_by_surface(mesh)
 
-        roof_points = semantic_points["R"]
+        roof_points = get_points_of_type(mesh, "RoofSurface")
+        ground_points = get_points_of_type(mesh, "GroundSurface")
 
         if len(roof_points) == 0:
             height_stats = get_stats([0])
             ground_z = 0
         else:
             height_stats = get_stats([v[2] for v in roof_points])
-            ground_z = min([v[2] for v in semantic_points["G"]])
+            ground_z = min([v[2] for v in ground_points])
         
         shape = to_shapely(geom, vertices)
 
@@ -467,7 +477,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             ch_volume,
             bb_volume,
             shape.length,
-            dataset.area,
+            mesh.area,
             area["GroundSurface"],
             area["WallSurface"],
             area["RoofSurface"],
