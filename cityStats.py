@@ -626,6 +626,7 @@ if __name__ == "__main__":
 # Volume [X]
 # Volume of convex hull [X]
 # Volume of BB [X]
+# Volume of voxelised building
 
 # Surface area [X]
 # Surface area by semantic surface [X]
