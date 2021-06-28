@@ -382,6 +382,8 @@ def to_triangulated_polydata(geom, vertices):
         result = earcut.triangulate_float32(points_2d, holes)
 
         t_count = len(result.reshape(-1,3))
+        if t_count == 0:
+            continue
         triangles = np.hstack([[3] + list(t) for t in result.reshape(-1,3)])
 
         new_mesh = pv.PolyData(points, triangles, n_faces=t_count)
@@ -530,7 +532,43 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         
         mesh = to_polydata(geom, vertices).clean()
 
-        tri_mesh = to_triangulated_polydata(geom, vertices)
+        try:
+            tri_mesh = to_triangulated_polydata(geom, vertices)
+        except:
+            click.warning(f"{obj} geometry parsing crashed! Omitting...")
+            stats[obj] = [
+            building["type"],
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA",
+            "NA"
+        ]
+            continue
 
         if plot_buildings:
             print(f"Plotting {obj}")
