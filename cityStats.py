@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from shapely.geometry import MultiPolygon, Polygon
 from helpers.minimumBoundingBox import MinimumBoundingBox
+import mapbox_earcut as earcut
 
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
@@ -280,6 +281,41 @@ def get_boundingbox_volume(points):
 
     return (maxx - minx) * (maxy - miny) * (maxz - minz)
 
+def project_2d(points, normal):
+    origin = points[0]
+    
+    if normal[2] > 0.001 or normal[2] < -0.001:
+        x_axis = [1, 0, -normal[0]/normal[2]];
+    elif normal[1] > 0.001 or normal[1] < -0.001:
+        x_axis = [1, -normal[0]/normal[1], 0];
+    else:
+        x_axis = [-normal[1] / normal[0], 1, 0];
+    
+    y_axis = np.cross(normal, x_axis)
+     
+    return [[np.dot(p - origin, x_axis), np.dot(p - origin, y_axis)] for p in points]
+
+def triangulate(mesh):
+    """Triangulates a mesh in the proper way"""
+    
+    final_mesh = pv.PolyData()
+    n_cells = mesh.n_cells
+    for i in np.arange(n_cells):
+        pts = mesh.cell_points(i)
+        p = project_2d(pts, mesh.face_normals[i])
+        result = earcut.triangulate_float32(p, [len(p)])
+
+        t_count = len(result.reshape(-1,3))
+        triangles = np.hstack([[3] + list(t) for t in result.reshape(-1,3)])
+        
+        new_mesh = pv.PolyData(pts, triangles, n_faces=t_count)
+        for k in mesh.cell_arrays:
+            new_mesh[k] = [mesh.cell_arrays[k][i] for _ in np.arange(t_count)]
+        
+        final_mesh = final_mesh + new_mesh
+    
+    return final_mesh
+
 def to_polydata(geom, vertices):
     """Returns the polydata mesh from a CityJSON geometry"""
 
@@ -334,7 +370,11 @@ def get_oriented_bounding_box(dataset, fix=True):
     height = np.max(dataset.clean().points[:, 2]) - ground_z
     box = np.array([[p[0], p[1], ground_z] for p in list(obb_2d.corner_points)])
 
-    obb = pv.PolyData(box).delaunay_2d().extrude([0.0, 0.0, height])
+    t = np.mean(box, axis=0)
+    obb = pv.PolyData(box).delaunay_2d()
+    obb.points = obb.points - t
+    obb = obb.extrude([0.0, 0.0, height])
+    obb.points = obb.points + t
 
     if fix:
         m = MeshFix(obb.clean().triangulate())
@@ -413,7 +453,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    for obj in cm["CityObjects"]:
+    for obj in tqdm(cm["CityObjects"]):
         building = cm["CityObjects"][obj]
 
         if not filter is None and filter != obj:
@@ -431,9 +471,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         geom = building["geometry"][0]
         
-        mesh = to_polydata(geom, vertices)
+        mesh = to_polydata(geom, vertices).clean()
 
-        tri_mesh = mesh.triangulate()
+        tri_mesh = triangulate(mesh)
 
         if plot_buildings:
             print(f"Plotting {obj}")
@@ -475,8 +515,12 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         area, point_count, surface_count = get_area_by_surface(mesh)
 
-        roof_points = get_points_of_type(mesh, "RoofSurface")
-        ground_points = get_points_of_type(mesh, "GroundSurface")
+        if "semantics" in geom:
+            roof_points = get_points_of_type(mesh, "RoofSurface")
+            ground_points = get_points_of_type(mesh, "GroundSurface")
+        else:
+            roof_points = []
+            ground_points = []
 
         obb = get_oriented_bounding_box(mesh)
 
