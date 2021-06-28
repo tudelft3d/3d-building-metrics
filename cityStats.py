@@ -231,8 +231,8 @@ def get_area_by_surface(mesh, tri_mesh=None):
 def get_points_of_type(mesh, surface_type):
     """Returns the points that belong to the given surface type"""
 
-    if not "semantics":
-        return 0
+    if not "semantics" in mesh.cell_arrays:
+        return []
     
     idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
 
@@ -281,6 +281,19 @@ def get_boundingbox_volume(points):
 
     return (maxx - minx) * (maxy - miny) * (maxz - minz)
 
+def surface_normal(poly):
+    n = [0.0, 0.0, 0.0]
+
+    for i, v_curr in enumerate(poly):
+        v_next = poly[(i+1) % len(poly)]
+        n[0] += (v_curr[1] - v_next[1]) * (v_curr[2] + v_next[2])
+        n[1] += (v_curr[2] - v_next[2]) * (v_curr[0] + v_next[0])
+        n[2] += (v_curr[0] - v_next[0]) * (v_curr[1] + v_next[1])
+
+    normalised = [i/np.linalg.norm(n) for i in n]
+
+    return normalised
+
 def project_2d(points, normal):
     origin = points[0]
     
@@ -301,6 +314,9 @@ def triangulate(mesh):
     final_mesh = pv.PolyData()
     n_cells = mesh.n_cells
     for i in np.arange(n_cells):
+        if not mesh.cell_type(i) in [5, 6, 7, 9, 10]:
+            continue
+
         pts = mesh.cell_points(i)
         p = project_2d(pts, mesh.face_normals[i])
         result = earcut.triangulate_float32(p, [len(p)])
@@ -336,6 +352,47 @@ def to_polydata(geom, vertices):
         mesh.cell_arrays["semantics"] = [semantics["surfaces"][i]["type"] for i in values]
     
     return mesh
+
+def to_triangulated_polydata(geom, vertices):
+    """Returns the polydata mesh from a CityJSON geometry"""
+
+    boundaries = get_surface_boundaries(geom)
+
+    final_mesh = pv.PolyData()
+    
+    if "semantics" in geom:        
+        semantics = geom["semantics"]
+        if geom["type"] == "MultiSurface":
+            values = semantics["values"]
+        else:
+            values = semantics["values"][0]
+        
+        semantic_types = [semantics["surfaces"][i]["type"] for i in values]
+
+    for fid, face in enumerate(boundaries):
+        points = vertices[np.hstack(face)]
+        normal = surface_normal(points)
+        holes = [0]
+        for ring in face:
+            holes.append(len(ring) + holes[-1])
+        holes = holes[1:]
+
+        points_2d = project_2d(points, normal)
+
+        result = earcut.triangulate_float32(points_2d, holes)
+
+        t_count = len(result.reshape(-1,3))
+        triangles = np.hstack([[3] + list(t) for t in result.reshape(-1,3)])
+
+        new_mesh = pv.PolyData(points, triangles, n_faces=t_count)
+        if "semantics" in geom:
+            new_mesh["semantics"] = [semantic_types[fid] for _ in np.arange(t_count)]
+
+        final_mesh = final_mesh + new_mesh
+    
+    final_mesh.clean()
+
+    return final_mesh
 
 def to_shapely(geom, vertices):
     """Returns a shapely geometry of the footprint from a CityJSON geometry"""
@@ -473,7 +530,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         
         mesh = to_polydata(geom, vertices).clean()
 
-        tri_mesh = triangulate(mesh)
+        tri_mesh = to_triangulated_polydata(geom, vertices)
 
         if plot_buildings:
             print(f"Plotting {obj}")
