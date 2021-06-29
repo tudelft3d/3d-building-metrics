@@ -11,6 +11,7 @@ from tqdm import tqdm
 from shapely.geometry import MultiPolygon, Polygon
 from helpers.minimumBoundingBox import MinimumBoundingBox
 import mapbox_earcut as earcut
+import stats as statslib
 
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
@@ -79,7 +80,8 @@ def plot_orientations(
     num_bins=36,
     title=None,
     title_y=1.05,
-    title_font=None
+    title_font=None,
+    show=False
 ):
     if title_font is None:
         title_font = {"family": "DejaVu Sans", "size": 12, "weight": "bold"}
@@ -118,7 +120,10 @@ def plot_orientations(
     if title:
         ax.set_title(title, y=title_y, fontdict=title_font)
 
-    plt.show()
+    if show:
+        plt.show()
+    
+    return plt
 
 def get_surface_plot(
     dataset,
@@ -536,38 +541,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             tri_mesh = to_triangulated_polydata(geom, vertices)
         except:
             click.warning(f"{obj} geometry parsing crashed! Omitting...")
-            stats[obj] = [
-            building["type"],
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA",
-            "NA"
-        ]
+            stats[obj] = [building["type"]] + ["NA" for r in range(len(columns) - 1)]
             continue
 
         if plot_buildings:
@@ -660,13 +634,16 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             bin_count,
             bin_edges,
             errors,
-            len(errors) == 0
+            len(errors) == 0,
+            statslib.circularity(shape),
+            statslib.hemisphericality(tri_mesh),
+            shape.area / shape.convex_hull.area,
+            fixed.volume / ch_volume
         ]
     
     plot_orientations(total_xy, bin_edges, title="Orientation plot")
     plot_orientations(total_xz, bin_edges, title="XZ plot")
     plot_orientations(total_yz, bin_edges, title="YZ plot")
-
 
     columns = [
         "type", # type of the city object
@@ -698,7 +675,11 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "orientation_values", # values of orientation plot of wall surfaces normals
         "orientaiton_edges", # edges of orientation plot of wall surfaces normals
         "errors", # error codes from val3dity for the city object
-        "valid" # validity of the city object
+        "valid", # validity of the city object
+        "circularity (2d)",
+        "hemisphericality (3d)",
+        "convexity (2d)",
+        "convexity (3d)"
     ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
@@ -721,7 +702,7 @@ if __name__ == "__main__":
 # Volume [X]
 # Volume of convex hull [X]
 # Volume of BB [X]
-# Volume of voxelised building
+# Volume of voxelised building 
 
 # Surface area [X]
 # Surface area by semantic surface [X]
