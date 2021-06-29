@@ -8,10 +8,11 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from shapely.geometry import MultiPolygon, Polygon
 from helpers.minimumBoundingBox import MinimumBoundingBox
 import mapbox_earcut as earcut
 import stats as statslib
+from cityjson import get_surface_boundaries, to_shapely
+import geometry
 
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
@@ -245,16 +246,6 @@ def get_points_of_type(mesh, surface_type):
 
     return np.vstack(points[idxs])
 
-def get_surface_boundaries(geom):
-    """Returns the boundaries for all surfaces"""
-
-    if geom["type"] == "MultiSurface":
-        return geom["boundaries"]
-    elif geom["type"] == "Solid":
-        return geom["boundaries"][0]
-    else:
-        raise Exception("Geometry not supported")
-
 def get_points(geom, verts):
     """Return the points of the geometry"""
 
@@ -400,28 +391,6 @@ def to_triangulated_polydata(geom, vertices):
     final_mesh.clean()
 
     return final_mesh
-
-def to_shapely(geom, vertices):
-    """Returns a shapely geometry of the footprint from a CityJSON geometry"""
-
-    boundaries = get_surface_boundaries(geom)
-
-    if "semantics" in geom:
-        semantics = geom["semantics"]
-        if geom["type"] == "MultiSurface":
-            values = semantics["values"]
-        else:
-            values = semantics["values"][0]
-        
-        ground_idxs = [semantics["surfaces"][i]["type"] == "GroundSurface" for i in values]
-
-        boundaries = np.array(boundaries)[ground_idxs]
-    
-    shape = MultiPolygon([Polygon([vertices[v] for v in boundary[0]]) for boundary in boundaries])
-
-    shape = shape.buffer(0)
-    
-    return shape
 
 def get_oriented_bounding_box(dataset, fix=True):
     """Return the oriented bounding box of the PolyData (only works for vertical
@@ -591,8 +560,6 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             roof_points = []
             ground_points = []
 
-        obb = get_oriented_bounding_box(mesh)
-
         if len(roof_points) == 0:
             height_stats = get_stats([0])
             ground_z = 0
@@ -601,6 +568,13 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             ground_z = min([v[2] for v in ground_points])
         
         shape = to_shapely(geom, vertices)
+
+        obb_2d = to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
+
+        # Compute OBB with shapely
+        min_z = np.min(mesh.clean().points[:, 2])
+        max_z = np.max(mesh.clean().points[:, 2])
+        obb = geometry.extrude(obb_2d, min_z, max_z)
 
         errors = get_errors_from_report(report, obj, cm)
 
@@ -640,7 +614,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             shape.area / shape.convex_hull.area,
             fixed.volume / ch_volume,
             statslib.fractality_2d(shape),
-            statslib.fractality_3d(fixed)
+            statslib.fractality_3d(fixed),
+            shape.area / shape.minimum_rotated_rectangle.area,
+            fixed.volume / obb.volume
         ]
     
     plot_orientations(total_xy, bin_edges, title="Orientation plot")
@@ -683,7 +659,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "convexity (2d)",
         "convexity (3d)",
         "fractality (2d)",
-        "fractality (3d)"
+        "fractality (3d)",
+        "rectangularity (2d)",
+        "rectangularity (3d)"
     ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
