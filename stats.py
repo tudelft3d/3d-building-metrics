@@ -31,3 +31,13 @@ def fractality_3d(mesh):
     """Returns the fractality in 3D for a given volume"""
 
     return 1 - math.log(mesh.volume) / (2 * math.log(mesh.area))
+
+def squareness(shape):
+    """Returns the squareness in 2D for a given polygon"""
+
+    return 4 * math.sqrt(shape.area) / shape.length
+
+def cubeness(mesh):
+    """Returns the cubeness in 3D for a given volume"""
+
+    return 6 * math.pow(mesh.volume, 2/3) / mesh.area

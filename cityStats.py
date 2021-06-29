@@ -616,7 +616,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             statslib.fractality_2d(shape),
             statslib.fractality_3d(fixed),
             shape.area / shape.minimum_rotated_rectangle.area,
-            fixed.volume / obb.volume
+            fixed.volume / obb.volume,
+            statslib.squareness(shape),
+            statslib.cubeness(fixed)
         ]
     
     plot_orientations(total_xy, bin_edges, title="Orientation plot")
@@ -661,7 +663,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "fractality (2d)",
         "fractality (3d)",
         "rectangularity (2d)",
-        "rectangularity (3d)"
+        "rectangularity (3d)",
+        "squareness",
+        "cubeness"
     ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
