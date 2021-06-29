@@ -21,3 +21,13 @@ def convexity_2d(shape):
     """Returns the convexity in 2D"""
 
     return shape.area / shape.convex_hull.area
+
+def fractality_2d(shape):
+    """Returns the fractality in 2D for a given polygon"""
+
+    return 1 - math.log(shape.area) / (2 * math.log(shape.length))
+
+def fractality_3d(mesh):
+    """Returns the fractality in 3D for a given volume"""
+
+    return 1 - math.log(mesh.volume) / (2 * math.log(mesh.area))

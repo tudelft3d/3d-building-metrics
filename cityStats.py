@@ -636,9 +636,11 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             errors,
             len(errors) == 0,
             statslib.circularity(shape),
-            statslib.hemisphericality(tri_mesh),
+            statslib.hemisphericality(fixed),
             shape.area / shape.convex_hull.area,
-            fixed.volume / ch_volume
+            fixed.volume / ch_volume,
+            statslib.fractality_2d(shape),
+            statslib.fractality_3d(fixed)
         ]
     
     plot_orientations(total_xy, bin_edges, title="Orientation plot")
@@ -679,7 +681,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "circularity (2d)",
         "hemisphericality (3d)",
         "convexity (2d)",
-        "convexity (3d)"
+        "convexity (3d)",
+        "fractality (2d)",
+        "fractality (3d)"
     ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
