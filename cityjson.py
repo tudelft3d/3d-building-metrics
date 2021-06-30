@@ -3,6 +3,7 @@
 import numpy as np
 from shapely.geometry import Polygon, MultiPolygon
 from helpers.geometry import project_2d, surface_normal, triangulate, triangulate_polygon
+import pyvista as pv
 
 def get_surface_boundaries(geom):
     """Returns the boundaries for all surfaces"""
@@ -13,6 +14,16 @@ def get_surface_boundaries(geom):
         return geom["boundaries"][0]
     else:
         raise Exception("Geometry not supported")
+
+def get_points(geom, verts):
+    """Return the points of the geometry"""
+
+    boundaries = get_surface_boundaries(geom)
+
+    f = [v for ring in boundaries for v in ring[0]]
+    points = [verts[i] for i in f]
+
+    return points
 
 def to_shapely(geom, vertices, ground_only=True):
     """Returns a shapely geometry of the footprint from a CityJSON geometry"""
@@ -76,7 +87,8 @@ def to_triangulated_polydata(geom, vertices):
     for fid, face in enumerate(boundaries):
         points, triangles = triangulate_polygon(face, vertices)
 
-        if len(triangles) == 0:
+        t_count = int(len(triangles) / 4)
+        if t_count == 0:
             continue
 
         new_mesh = pv.PolyData(points, triangles, n_faces=t_count)

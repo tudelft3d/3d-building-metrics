@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from helpers.minimumBoundingBox import MinimumBoundingBox
 import stats as statslib
-from cityjson import get_surface_boundaries, to_shapely
+import cityjson
 import geometry
 
 def get_bearings(values, num_bins, weights):
@@ -233,29 +233,6 @@ def get_area_by_surface(mesh, tri_mesh=None):
     
     return area, point_count, surface_count
 
-def get_points_of_type(mesh, surface_type):
-    """Returns the points that belong to the given surface type"""
-
-    if not "semantics" in mesh.cell_arrays:
-        return []
-    
-    idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
-
-    points = np.array([mesh.cell_points(i) for i in range(mesh.number_of_cells)])
-
-    return np.vstack(points[idxs])
-
-def get_points(geom, verts):
-    """Return the points of the geometry"""
-
-    boundaries = get_surface_boundaries(geom)
-
-    # Compute the convex hull volume
-    f = [v for ring in boundaries for v in ring[0]]
-    points = [verts[i] for i in f]
-
-    return points
-
 def get_convexhull_volume(points):
     """Returns the volume of the convex hull"""
 
@@ -388,10 +365,10 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         geom = building["geometry"][0]
         
-        mesh = to_polydata(geom, vertices).clean()
+        mesh = cityjson.to_polydata(geom, vertices).clean()
 
         try:
-            tri_mesh = to_triangulated_polydata(geom, vertices)
+            tri_mesh = cityjson.to_triangulated_polydata(geom, vertices)
         except:
             click.warning(f"{obj} geometry parsing crashed! Omitting...")
             stats[obj] = [building["type"]] + ["NA" for r in range(len(columns) - 1)]
@@ -429,7 +406,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         # plotter.enable_eye_dome_lighting() # helps depth perception
         # _ = plotter.show()
 
-        points = get_points(geom, vertices)
+        points = cityjson.get_points(geom, vertices)
 
         aabb_volume = get_boundingbox_volume(points)
 
@@ -438,8 +415,8 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         area, point_count, surface_count = get_area_by_surface(mesh)
 
         if "semantics" in geom:
-            roof_points = get_points_of_type(mesh, "RoofSurface")
-            ground_points = get_points_of_type(mesh, "GroundSurface")
+            roof_points = geometry.get_points_of_type(mesh, "RoofSurface")
+            ground_points = geometry.get_points_of_type(mesh, "GroundSurface")
         else:
             roof_points = []
             ground_points = []
@@ -451,9 +428,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             height_stats = get_stats([v[2] for v in roof_points])
             ground_z = min([v[2] for v in ground_points])
         
-        shape = to_shapely(geom, vertices)
+        shape = cityjson.to_shapely(geom, vertices)
 
-        obb_2d = to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
+        obb_2d = cityjson.to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
 
         # Compute OBB with shapely
         min_z = np.min(mesh.clean().points[:, 2])
@@ -465,7 +442,7 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         stats[obj] = [
             building["type"],
             len(points),
-            len(get_surface_boundaries(geom)),
+            len(cityjson.get_surface_boundaries(geom)),
             fixed.volume,
             ch_volume,
             obb.volume,
