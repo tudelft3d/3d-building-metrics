@@ -1,3 +1,5 @@
+"""Module that computes indexes for shapely (2D) and polydata (3D) shapes"""
+
 import math
 
 def circularity(shape):

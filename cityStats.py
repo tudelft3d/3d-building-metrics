@@ -9,7 +9,7 @@ import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from helpers.minimumBoundingBox import MinimumBoundingBox
-import stats as statslib
+import shape_index as si
 import cityjson
 import geometry
 
@@ -159,7 +159,7 @@ def get_point_zenith(p):
 
     return (angle * 180 / np.pi) % 360
 
-def get_stats(values, percentile = 90, percentage = 75):
+def compute_stats(values, percentile = 90, percentage = 75):
     """
     Returns the stats (mean, median, max, min, range etc.) for a set of values.
     
@@ -190,50 +190,7 @@ def add_value(dict, key, value):
     else:
         area[key] = value
 
-def get_area_by_surface(mesh, tri_mesh=None):
-    """Compute the area per semantic surface"""
-
-    area = {
-        "GroundSurface": 0,
-        "WallSurface": 0,
-        "RoofSurface": 0
-    }
-
-    point_count = {
-        "GroundSurface": 0,
-        "WallSurface": 0,
-        "RoofSurface": 0
-    }
-
-    surface_count = {
-        "GroundSurface": 0,
-        "WallSurface": 0,
-        "RoofSurface": 0
-    }
-
-    # Compute the triangulated surfaces to fix issues with areas
-    if tri_mesh is None:
-        tri_mesh = mesh.triangulate()
-
-    if "semantics" in mesh.cell_arrays:
-        # Compute area per surface type
-        sized = tri_mesh.compute_cell_sizes()
-        surface_areas = sized.cell_arrays["Area"]
-
-        points_per_cell = np.array([mesh.cell_n_points(i) for i in range(mesh.number_of_cells)])
-
-        for surface_type in area:
-            triangle_idxs = [s == surface_type for s in tri_mesh.cell_arrays["semantics"]]
-            area[surface_type] = sum(surface_areas[triangle_idxs])
-
-            face_idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
-
-            point_count[surface_type] = sum(points_per_cell[face_idxs])
-            surface_count[surface_type] = sum(face_idxs)
-    
-    return area, point_count, surface_count
-
-def get_convexhull_volume(points):
+def convexhull_volume(points):
     """Returns the volume of the convex hull"""
 
     try:
@@ -241,7 +198,7 @@ def get_convexhull_volume(points):
     except:
         return 0
 
-def get_boundingbox_volume(points):
+def boundingbox_volume(points):
     """Returns the volume of the bounding box"""
     
     minx = min(p[0] for p in points)
@@ -252,30 +209,6 @@ def get_boundingbox_volume(points):
     maxz = max(p[2] for p in points)
 
     return (maxx - minx) * (maxy - miny) * (maxz - minz)
-
-def get_oriented_bounding_box(dataset, fix=True):
-    """Return the oriented bounding box of the PolyData (only works for vertical
-    objects)
-    """
-    
-    obb_2d = MinimumBoundingBox([(p[0], p[1]) for p in dataset.clean().points])
-
-    ground_z = np.min(dataset.clean().points[:, 2])
-    height = np.max(dataset.clean().points[:, 2]) - ground_z
-    box = np.array([[p[0], p[1], ground_z] for p in list(obb_2d.corner_points)])
-
-    t = np.mean(box, axis=0)
-    obb = pv.PolyData(box).delaunay_2d()
-    obb.points = obb.points - t
-    obb = obb.extrude([0.0, 0.0, height])
-    obb.points = obb.points + t
-
-    if fix:
-        m = MeshFix(obb.clean().triangulate())
-        m.repair()
-        obb = m.mesh
-
-    return obb
 
 def get_errors_from_report(report, objid, cm):
     """Return the report for the feature of the given obj"""
@@ -306,6 +239,7 @@ def get_errors_from_report(report, objid, cm):
 def validate_report(report, cm):
     """Returns true if the report is actually for this file"""
 
+    # TODO: Actually validate the report and that it corresponds to this cm
     return True
 
 # Assume semantic surfaces
@@ -408,11 +342,11 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         points = cityjson.get_points(geom, vertices)
 
-        aabb_volume = get_boundingbox_volume(points)
+        aabb_volume = boundingbox_volume(points)
 
-        ch_volume = get_convexhull_volume(points)
+        ch_volume = convexhull_volume(points)
 
-        area, point_count, surface_count = get_area_by_surface(mesh)
+        area, point_count, surface_count = geometry.area_by_surface(mesh)
 
         if "semantics" in geom:
             roof_points = geometry.get_points_of_type(mesh, "RoofSurface")
@@ -422,10 +356,10 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             ground_points = []
 
         if len(roof_points) == 0:
-            height_stats = get_stats([0])
+            height_stats = compute_stats([0])
             ground_z = 0
         else:
-            height_stats = get_stats([v[2] for v in roof_points])
+            height_stats = compute_stats([v[2] for v in roof_points])
             ground_z = min([v[2] for v in ground_points])
         
         shape = cityjson.to_shapely(geom, vertices)
@@ -470,16 +404,16 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             bin_edges,
             errors,
             len(errors) == 0,
-            statslib.circularity(shape),
-            statslib.hemisphericality(fixed),
+            si.circularity(shape),
+            si.hemisphericality(fixed),
             shape.area / shape.convex_hull.area,
             fixed.volume / ch_volume,
-            statslib.fractality_2d(shape),
-            statslib.fractality_3d(fixed),
+            si.fractality_2d(shape),
+            si.fractality_3d(fixed),
             shape.area / shape.minimum_rotated_rectangle.area,
             fixed.volume / obb.volume,
-            statslib.squareness(shape),
-            statslib.cubeness(fixed)
+            si.squareness(shape),
+            si.cubeness(fixed)
         ]
     
     plot_orientations(total_xy, bin_edges, title="Orientation plot")
