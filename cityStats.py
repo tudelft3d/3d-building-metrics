@@ -44,7 +44,7 @@ def get_wall_bearings(dataset, num_bins):
 
     normals = normals[wall_idxs]
 
-    azimuth = [get_point_azimuth(n) for n in normals]
+    azimuth = [point_azimuth(n) for n in normals]
 
     sized = dataset.compute_cell_sizes()
     surface_areas = sized.cell_arrays["Area"][wall_idxs]
@@ -63,8 +63,8 @@ def get_roof_bearings(dataset, num_bins):
 
     normals = normals[roof_idxs]
 
-    xz_angle = [get_azimuth(n[0], n[2]) for n in normals]
-    yz_angle = [get_azimuth(n[1], n[2]) for n in normals]
+    xz_angle = [azimuth(n[0], n[2]) for n in normals]
+    yz_angle = [azimuth(n[1], n[2]) for n in normals]
 
     sized = dataset.compute_cell_sizes()
     surface_areas = sized.cell_arrays["Area"][roof_idxs]
@@ -74,7 +74,7 @@ def get_roof_bearings(dataset, num_bins):
 
     return xz_counts, yz_counts, bin_edges
 
-def plot_orientations(
+def orientation_plot(
     bin_counts,
     bin_edges,
     num_bins=36,
@@ -132,24 +132,24 @@ def get_surface_plot(
     title_y=1.05,
     title_font=None
 ):
-    """Prints a plot for the surface normals of a polyData"""
+    """Returns a plot for the surface normals of a polyData"""
     
     bin_counts, bin_edges = get_wall_bearings(dataset, num_bins)
 
-    plot_orientations(bin_counts, bin_edges)
+    return orientation_plot(bin_counts, bin_edges)
     
 
-def get_azimuth(dx, dy):
+def azimuth(dx, dy):
     """Returns the azimuth angle for the given coordinates"""
     
     return (math.atan2(dx, dy) * 180 / np.pi) % 360
 
-def get_point_azimuth(p):
+def point_azimuth(p):
     """Returns the azimuth angle of the given point"""
 
-    return get_azimuth(p[0], p[1])
+    return azimuth(p[0], p[1])
 
-def get_point_zenith(p):
+def point_zenith(p):
     """Return the zenith angle of the given 3d point"""
 
     z = [0.0, 0.0, 1.0]
@@ -416,9 +416,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             si.cubeness(fixed)
         ]
     
-    plot_orientations(total_xy, bin_edges, title="Orientation plot")
-    plot_orientations(total_xz, bin_edges, title="XZ plot")
-    plot_orientations(total_yz, bin_edges, title="YZ plot")
+    orientation_plot(total_xy, bin_edges, title="Orientation plot")
+    orientation_plot(total_xz, bin_edges, title="XZ plot")
+    orientation_plot(total_yz, bin_edges, title="YZ plot")
 
     columns = [
         "type", # type of the city object
