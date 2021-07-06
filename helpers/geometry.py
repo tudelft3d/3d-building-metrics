@@ -17,9 +17,8 @@ def surface_normal(poly):
 
     return normalised
 
-def project_2d(points, normal):
-    origin = points[0]
-    
+def axes_of_normal(normal):
+    """Returns an x-axis and y-axis on a plane of the given normal"""
     if normal[2] > 0.001 or normal[2] < -0.001:
         x_axis = [1, 0, -normal[0]/normal[2]];
     elif normal[1] > 0.001 or normal[1] < -0.001:
@@ -27,7 +26,15 @@ def project_2d(points, normal):
     else:
         x_axis = [-normal[1] / normal[0], 1, 0];
     
+    x_axis = x_axis / np.linalg.norm(x_axis)
     y_axis = np.cross(normal, x_axis)
+
+    return x_axis, y_axis
+
+def project_2d(points, normal):
+    origin = points[0]
+
+    x_axis, y_axis = axes_of_normal(normal)
      
     return [[np.dot(p - origin, x_axis), np.dot(p - origin, y_axis)] for p in points]
 
