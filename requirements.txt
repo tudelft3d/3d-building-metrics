@@ -11,3 +11,4 @@ jupyter
 mapbox-earcut
 python-polylabel
 miniball
+ipygany
