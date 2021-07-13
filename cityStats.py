@@ -373,6 +373,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
 
         errors = get_errors_from_report(report, obj, cm)
 
+        # Get the dimensions of the 2D oriented bounding box
+        S, L = si.get_box_dimensions(obb_2d)
+
         stats[obj] = [
             building["type"],
             len(points),
@@ -413,7 +416,13 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             shape.area / shape.minimum_rotated_rectangle.area,
             fixed.volume / obb.volume,
             si.squareness(shape),
-            si.cubeness(fixed)
+            si.cubeness(fixed),
+            si.elongation(S, L),
+            si.elongation(L, height_stats["Max"]),
+            si.elongation(S, height_stats["Max"]),
+            shape.area / math.pow(fixed.volume, 2/3),
+            si.equivalent_rectangular_index(shape),
+            si.equivalent_prism_index(fixed, obb)
         ]
     
     orientation_plot(total_xy, bin_edges, title="Orientation plot")
@@ -460,7 +469,13 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "rectangularity (2d)",
         "rectangularity (3d)",
         "squareness",
-        "cubeness"
+        "cubeness",
+        "horizontal elongation",
+        "min vertical elongation",
+        "max vertical elongation",
+        "form factor (3D)",
+        "equivalent rectangularity index",
+        "equivalent prism index"
     ]
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
