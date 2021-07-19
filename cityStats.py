@@ -250,7 +250,18 @@ def validate_report(report, cm):
 @click.option('-f', '--filter')
 @click.option('-r', '--repair', flag_value=True)
 @click.option('-p', '--plot-buildings', flag_value=True)
-def main(input, output, val3dity_report, filter, repair, plot_buildings):
+@click.option('-c', '--with-cohesion', flag_value=True)
+@click.option('--density-2d', default=1)
+@click.option('--density-3d', default=1)
+def main(input,
+         output,
+         val3dity_report,
+         filter,
+         repair,
+         plot_buildings,
+         with_cohesion,
+         density_2d,
+         density_3d):
     cm = json.load(input)
 
     if "transform" in cm:
@@ -376,6 +387,9 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         # Get the dimensions of the 2D oriented bounding box
         S, L = si.get_box_dimensions(obb_2d)
 
+        voxel = pv.voxelize(mesh, density=density_3d, check_surface=False)
+        grid = voxel.cell_centers().points
+
         stats[obj] = [
             building["type"],
             len(points),
@@ -422,7 +436,16 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
             si.elongation(S, height_stats["Max"]),
             shape.area / math.pow(fixed.volume, 2/3),
             si.equivalent_rectangular_index(shape),
-            si.equivalent_prism_index(fixed, obb)
+            si.equivalent_prism_index(fixed, obb),
+            si.proximity_3d(mesh, grid),
+            si.exchange_3d(mesh, density=density_3d),
+            si.spin_3d(mesh, grid),
+            si.circumference_index_3d(mesh),
+            si.depth_3d(mesh, density=density_3d),
+            si.girth_3d(mesh, grid),
+            si.dispersion_3d(mesh, grid, density=density_3d),
+            si.range_3d(mesh),
+            si.roughness_index_3d(mesh, grid, density_2d)
         ]
     
     orientation_plot(total_xy, bin_edges, title="Orientation plot")
@@ -475,8 +498,28 @@ def main(input, output, val3dity_report, filter, repair, plot_buildings):
         "max vertical elongation",
         "form factor (3D)",
         "equivalent rectangularity index",
-        "equivalent prism index"
+        "equivalent prism index",
+        "proximity index",
+        "exchange index",
+        "spin index",
+        "perimeter index",
+        "depth index",
+        "girth index",
+        "dispersion index",
+        "range index",
+        "roughness index",
     ]
+
+    # print(f"Cohesion | {cohesion_2d(shape):.5f} | {cohesion_3d(mesh, grid):.5f}")
+    # print(f"Proximity | {proximity_2d(shape, density=density_2d):.5f} | {proximity_3d(mesh, grid):.5f}")
+    # print(f"Exchange | {exchange_2d(shape):.5f} | {exchange_3d(mesh, density=density_3d):.5f}")
+    # print(f"Spin | {spin_2d(shape, density=density_2d):.5f} | {spin_3d(mesh, grid):.5f}")
+    # print(f"Perimeter/Circumference | {perimeter_index(shape):.5f} | {circumference_index_3d(mesh):.5f} ")
+    # print(f"Depth | {depth_2d(shape, density=density_2d):.5f} | {depth_3d(mesh, density=density_3d):.5f} ")
+    # print(f"Girth | {girth_2d(shape):.5f} | {girth_3d(mesh, grid):.5f}")
+    # print(f"Dispersion | {dispersion_2d(shape, density=density_2d):.5f} | {dispersion_3d(mesh, grid, density=density_3d):0.5f}")
+    # print(f"Range | {range_2d(shape):.5f} | {range_3d(mesh):.5f}")
+    # print(f"Roughness index | {roughness_index_2d(shape, density_2d)} | {roughness_index_3d(mesh, grid, density_2d)}")
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
     df.index.name = "id"
