@@ -415,10 +415,23 @@ def range_2d(shape):
     
     return math.sqrt(shape.area / math.pi) / r
 
+def get_bounding_ball_radius(points):
+    """Returns the bounding ball for a set of points"""
+
+    try:
+        _, r2 = miniball.get_bounding_ball(points)
+    except:
+        return -1
+    
+    return r2
+
 def range_3d(mesh):
     """Returns the range index in 3D for a given mesh"""
     
-    _, r2 = miniball.get_bounding_ball(mesh.points)
+    r2 = -1
+
+    while r2 < 0:
+        r2 = get_bounding_ball_radius(mesh.points)
     
     r_scc = math.sqrt(r2)
     
