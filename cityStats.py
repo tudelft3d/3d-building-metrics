@@ -12,6 +12,7 @@ from helpers.minimumBoundingBox import MinimumBoundingBox
 import shape_index as si
 import cityjson
 import geometry
+from concurrent.futures import ProcessPoolExecutor
 
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
@@ -242,6 +243,171 @@ def validate_report(report, cm):
     # TODO: Actually validate the report and that it corresponds to this cm
     return True
 
+def process_building(cm,
+                     obj,
+                     report,
+                     val3dity_report,
+                     filter,
+                     repair,
+                     plot_buildings,
+                     with_cohesion,
+                     density_2d,
+                     density_3d,
+                     vertices):
+    building = cm["CityObjects"][obj]
+
+    if not filter is None and filter != obj:
+        return obj, None
+
+    # TODO: Add options for all skip conditions below
+
+    # Skip if type is not Building or Building part
+    if not building["type"] in ["Building", "BuildingPart"]:
+        return obj, None
+
+    # Skip if no geometry
+    if not "geometry" in building or len(building["geometry"]) == 0:
+        return obj, None
+
+    geom = building["geometry"][0]
+    
+    mesh = cityjson.to_polydata(geom, vertices).clean()
+
+    try:
+        tri_mesh = cityjson.to_triangulated_polydata(geom, vertices)
+    except:
+        click.warning(f"{obj} geometry parsing crashed! Omitting...")
+        return obj, [building["type"]] + ["NA" for r in range(len(columns) - 1)]
+
+    if plot_buildings:
+        print(f"Plotting {obj}")
+        tri_mesh.plot()
+
+    # get_surface_plot(dataset, title=obj)
+
+    bin_count, bin_edges = get_wall_bearings(mesh, 36)
+
+    xzc, yzc, be = get_roof_bearings(mesh, 36)
+    # plot_orientations(xzc, be, title=f"XZ orientation [{obj}]")
+    # plot_orientations(yzc, be, title=f"YZ orientation [{obj}]")
+
+    # total_xy = total_xy + bin_count
+    # total_xz = total_xz + xzc
+    # total_yz = total_yz + yzc
+
+    if repair:
+        mfix = MeshFix(mesh)
+        mfix.repair()
+
+        fixed = mfix.mesh
+    else:
+        fixed = tri_mesh
+
+    # holes = mfix.extract_holes()
+
+    # plotter = pv.Plotter()
+    # plotter.add_mesh(dataset, color=True)
+    # plotter.add_mesh(holes, color='r', line_width=5)
+    # plotter.enable_eye_dome_lighting() # helps depth perception
+    # _ = plotter.show()
+
+    points = cityjson.get_points(geom, vertices)
+
+    aabb_volume = boundingbox_volume(points)
+
+    ch_volume = convexhull_volume(points)
+
+    area, point_count, surface_count = geometry.area_by_surface(mesh)
+
+    if "semantics" in geom:
+        roof_points = geometry.get_points_of_type(mesh, "RoofSurface")
+        ground_points = geometry.get_points_of_type(mesh, "GroundSurface")
+    else:
+        roof_points = []
+        ground_points = []
+
+    if len(roof_points) == 0:
+        height_stats = compute_stats([0])
+        ground_z = 0
+    else:
+        height_stats = compute_stats([v[2] for v in roof_points])
+        ground_z = min([v[2] for v in ground_points])
+    
+    shape = cityjson.to_shapely(geom, vertices)
+
+    obb_2d = cityjson.to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
+
+    # Compute OBB with shapely
+    min_z = np.min(mesh.clean().points[:, 2])
+    max_z = np.max(mesh.clean().points[:, 2])
+    obb = geometry.extrude(obb_2d, min_z, max_z)
+
+    errors = get_errors_from_report(report, obj, cm)
+
+    # Get the dimensions of the 2D oriented bounding box
+    S, L = si.get_box_dimensions(obb_2d)
+
+    voxel = pv.voxelize(mesh, density=density_3d, check_surface=False)
+    grid = voxel.cell_centers().points
+
+    return obj, [
+        building["type"],
+        len(points),
+        len(cityjson.get_surface_boundaries(geom)),
+        fixed.volume,
+        ch_volume,
+        obb.volume,
+        aabb_volume,
+        shape.length,
+        mesh.area,
+        area["GroundSurface"],
+        area["WallSurface"],
+        area["RoofSurface"],
+        point_count["GroundSurface"],
+        point_count["WallSurface"],
+        point_count["RoofSurface"],
+        surface_count["GroundSurface"],
+        surface_count["WallSurface"],
+        surface_count["RoofSurface"],
+        height_stats["Max"],
+        height_stats["Min"],
+        height_stats["Range"],
+        height_stats["Mean"],
+        height_stats["Median"],
+        height_stats["Std"],
+        height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
+        ground_z,
+        bin_count,
+        bin_edges,
+        errors,
+        len(errors) == 0,
+        si.circularity(shape),
+        si.hemisphericality(fixed),
+        shape.area / shape.convex_hull.area,
+        fixed.volume / ch_volume,
+        si.fractality_2d(shape),
+        si.fractality_3d(fixed),
+        shape.area / shape.minimum_rotated_rectangle.area,
+        fixed.volume / obb.volume,
+        si.squareness(shape),
+        si.cubeness(fixed),
+        si.elongation(S, L),
+        si.elongation(L, height_stats["Max"]),
+        si.elongation(S, height_stats["Max"]),
+        shape.area / math.pow(fixed.volume, 2/3),
+        si.equivalent_rectangular_index(shape),
+        si.equivalent_prism_index(fixed, obb),
+        si.proximity_3d(mesh, grid),
+        si.exchange_3d(mesh, density=density_3d),
+        si.spin_3d(mesh, grid),
+        si.circumference_index_3d(mesh),
+        si.depth_3d(mesh, density=density_3d),
+        si.girth_3d(mesh, grid),
+        si.dispersion_3d(mesh, grid, density=density_3d),
+        si.range_3d(mesh),
+        si.roughness_index_3d(mesh, grid, density_2d)
+    ]
+
 # Assume semantic surfaces
 @click.command()
 @click.argument("input", type=click.File("rb"))
@@ -292,165 +458,39 @@ def main(input,
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    for obj in tqdm(cm["CityObjects"]):
-        building = cm["CityObjects"][obj]
+    from concurrent.futures import ProcessPoolExecutor
 
-        if not filter is None and filter != obj:
-            continue
+    num_objs = len(cm["CityObjects"])
+    num_cores = 4
 
-        # TODO: Add options for all skip conditions below
+    with ProcessPoolExecutor(max_workers=num_cores) as pool:
+        with tqdm(total=len(cm["CityObjects"])) as progress:
+            futures = []
 
-        # Skip if type is not Building or Building part
-        if not building["type"] in ["Building", "BuildingPart"]:
-            continue
+            for obj in cm["CityObjects"]:
+                future = pool.submit(process_building,
+                                    cm,
+                                    obj,
+                                    report,
+                                    val3dity_report,
+                                    filter,
+                                    repair,
+                                    plot_buildings,
+                                    with_cohesion,
+                                    density_2d,
+                                    density_3d,
+                                    vertices)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
+            
+            results = []
+            for future in futures:
+                obj, vals = future.result()
+                stats[obj] = vals
 
-        # Skip if no geometry
-        if not "geometry" in building or len(building["geometry"]) == 0:
-            continue
-
-        geom = building["geometry"][0]
-        
-        mesh = cityjson.to_polydata(geom, vertices).clean()
-
-        try:
-            tri_mesh = cityjson.to_triangulated_polydata(geom, vertices)
-        except:
-            click.warning(f"{obj} geometry parsing crashed! Omitting...")
-            stats[obj] = [building["type"]] + ["NA" for r in range(len(columns) - 1)]
-            continue
-
-        if plot_buildings:
-            print(f"Plotting {obj}")
-            tri_mesh.plot()
-
-        # get_surface_plot(dataset, title=obj)
-
-        bin_count, bin_edges = get_wall_bearings(mesh, 36)
-
-        xzc, yzc, be = get_roof_bearings(mesh, 36)
-        # plot_orientations(xzc, be, title=f"XZ orientation [{obj}]")
-        # plot_orientations(yzc, be, title=f"YZ orientation [{obj}]")
-
-        total_xy = total_xy + bin_count
-        total_xz = total_xz + xzc
-        total_yz = total_yz + yzc
-
-        if repair:
-            mfix = MeshFix(mesh)
-            mfix.repair()
-
-            fixed = mfix.mesh
-        else:
-            fixed = tri_mesh
-
-        # holes = mfix.extract_holes()
-
-        # plotter = pv.Plotter()
-        # plotter.add_mesh(dataset, color=True)
-        # plotter.add_mesh(holes, color='r', line_width=5)
-        # plotter.enable_eye_dome_lighting() # helps depth perception
-        # _ = plotter.show()
-
-        points = cityjson.get_points(geom, vertices)
-
-        aabb_volume = boundingbox_volume(points)
-
-        ch_volume = convexhull_volume(points)
-
-        area, point_count, surface_count = geometry.area_by_surface(mesh)
-
-        if "semantics" in geom:
-            roof_points = geometry.get_points_of_type(mesh, "RoofSurface")
-            ground_points = geometry.get_points_of_type(mesh, "GroundSurface")
-        else:
-            roof_points = []
-            ground_points = []
-
-        if len(roof_points) == 0:
-            height_stats = compute_stats([0])
-            ground_z = 0
-        else:
-            height_stats = compute_stats([v[2] for v in roof_points])
-            ground_z = min([v[2] for v in ground_points])
-        
-        shape = cityjson.to_shapely(geom, vertices)
-
-        obb_2d = cityjson.to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
-
-        # Compute OBB with shapely
-        min_z = np.min(mesh.clean().points[:, 2])
-        max_z = np.max(mesh.clean().points[:, 2])
-        obb = geometry.extrude(obb_2d, min_z, max_z)
-
-        errors = get_errors_from_report(report, obj, cm)
-
-        # Get the dimensions of the 2D oriented bounding box
-        S, L = si.get_box_dimensions(obb_2d)
-
-        voxel = pv.voxelize(mesh, density=density_3d, check_surface=False)
-        grid = voxel.cell_centers().points
-
-        stats[obj] = [
-            building["type"],
-            len(points),
-            len(cityjson.get_surface_boundaries(geom)),
-            fixed.volume,
-            ch_volume,
-            obb.volume,
-            aabb_volume,
-            shape.length,
-            mesh.area,
-            area["GroundSurface"],
-            area["WallSurface"],
-            area["RoofSurface"],
-            point_count["GroundSurface"],
-            point_count["WallSurface"],
-            point_count["RoofSurface"],
-            surface_count["GroundSurface"],
-            surface_count["WallSurface"],
-            surface_count["RoofSurface"],
-            height_stats["Max"],
-            height_stats["Min"],
-            height_stats["Range"],
-            height_stats["Mean"],
-            height_stats["Median"],
-            height_stats["Std"],
-            height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
-            ground_z,
-            bin_count,
-            bin_edges,
-            errors,
-            len(errors) == 0,
-            si.circularity(shape),
-            si.hemisphericality(fixed),
-            shape.area / shape.convex_hull.area,
-            fixed.volume / ch_volume,
-            si.fractality_2d(shape),
-            si.fractality_3d(fixed),
-            shape.area / shape.minimum_rotated_rectangle.area,
-            fixed.volume / obb.volume,
-            si.squareness(shape),
-            si.cubeness(fixed),
-            si.elongation(S, L),
-            si.elongation(L, height_stats["Max"]),
-            si.elongation(S, height_stats["Max"]),
-            shape.area / math.pow(fixed.volume, 2/3),
-            si.equivalent_rectangular_index(shape),
-            si.equivalent_prism_index(fixed, obb),
-            si.proximity_3d(mesh, grid),
-            si.exchange_3d(mesh, density=density_3d),
-            si.spin_3d(mesh, grid),
-            si.circumference_index_3d(mesh),
-            si.depth_3d(mesh, density=density_3d),
-            si.girth_3d(mesh, grid),
-            si.dispersion_3d(mesh, grid, density=density_3d),
-            si.range_3d(mesh),
-            si.roughness_index_3d(mesh, grid, density_2d)
-        ]
-    
-    orientation_plot(total_xy, bin_edges, title="Orientation plot")
-    orientation_plot(total_xz, bin_edges, title="XZ plot")
-    orientation_plot(total_yz, bin_edges, title="YZ plot")
+    # orientation_plot(total_xy, bin_edges, title="Orientation plot")
+    # orientation_plot(total_xz, bin_edges, title="XZ plot")
+    # orientation_plot(total_yz, bin_edges, title="YZ plot")
 
     columns = [
         "type", # type of the city object
