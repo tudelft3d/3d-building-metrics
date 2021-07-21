@@ -289,17 +289,20 @@ def exchange_3d(mesh, evs=None, density=0.25, engine="igl"):
     """
     
     if evs is None:
-        voxel = pv.voxelize(mesh, density=density)
+        voxel = pv.voxelize(mesh, density=density, check_surface=False)
         grid = voxel.cell_centers().points
 
         centroid = np.mean(grid, axis=0)
         evs = equal_volume_sphere(mesh, centroid)
     
+    if mesh.n_open_edges > 0:
+        return -1
+
     pm_mesh = to_pymesh(mesh)
     pm_evs = to_pymesh(evs)
-    
+
     inter = pymesh.boolean(pm_mesh, pm_evs, operation="intersection", engine=engine)
-    
+
     return inter.volume / mesh.volume
 
 def spin_2d(shape, grid=None, density=1):

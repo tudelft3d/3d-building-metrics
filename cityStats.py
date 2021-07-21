@@ -243,10 +243,9 @@ def validate_report(report, cm):
     # TODO: Actually validate the report and that it corresponds to this cm
     return True
 
-def process_building(cm,
+def process_building(building,
                      obj,
-                     report,
-                     val3dity_report,
+                     errors,
                      filter,
                      repair,
                      plot_buildings,
@@ -254,7 +253,6 @@ def process_building(cm,
                      density_2d,
                      density_3d,
                      vertices):
-    building = cm["CityObjects"][obj]
 
     if not filter is None and filter != obj:
         return obj, None
@@ -342,8 +340,6 @@ def process_building(cm,
     max_z = np.max(mesh.clean().points[:, 2])
     obb = geometry.extrude(obb_2d, min_z, max_z)
 
-    errors = get_errors_from_report(report, obj, cm)
-
     # Get the dimensions of the 2D oriented bounding box
     S, L = si.get_box_dimensions(obb_2d)
 
@@ -400,23 +396,23 @@ def process_building(cm,
         si.equivalent_rectangular_index(shape),
         si.equivalent_prism_index(fixed, obb),
         si.proximity_2d(shape, density=density_2d),
-        si.proximity_3d(mesh, grid, density=density_3d),
+        si.proximity_3d(tri_mesh, grid, density=density_3d),
         si.exchange_2d(shape),
-        si.exchange_3d(mesh, density=density_3d),
+        si.exchange_3d(tri_mesh, density=density_3d),
         si.spin_2d(shape, density=density_2d),
-        si.spin_3d(mesh, grid, density=density_3d),
+        si.spin_3d(tri_mesh, grid, density=density_3d),
         si.perimeter_index(shape),
-        si.circumference_index_3d(mesh),
+        si.circumference_index_3d(tri_mesh),
         si.depth_2d(shape, density=density_2d),
-        si.depth_3d(mesh, density=density_3d),
+        si.depth_3d(tri_mesh, density=density_3d),
         si.girth_2d(shape),
-        si.girth_3d(mesh, grid, density=density_3d),
+        si.girth_3d(tri_mesh, grid, density=density_3d),
         si.dispersion_2d(shape, density=density_2d),
-        si.dispersion_3d(mesh, grid, density=density_3d),
+        si.dispersion_3d(tri_mesh, grid, density=density_3d),
         si.range_2d(shape),
-        si.range_3d(mesh),
+        si.range_3d(tri_mesh),
         si.roughness_index_2d(shape, density=density_2d),
-        si.roughness_index_3d(mesh, grid, density_2d)
+        si.roughness_index_3d(tri_mesh, grid, density_2d)
     ]
 
 # Assume semantic surfaces
@@ -428,6 +424,7 @@ def process_building(cm,
 @click.option('-r', '--repair', flag_value=True)
 @click.option('-p', '--plot-buildings', flag_value=True)
 @click.option('-c', '--with-cohesion', flag_value=True)
+@click.option('-s', '--single-threaded', flag_value=True)
 @click.option('--density-2d', default=1)
 @click.option('--density-3d', default=1)
 def main(input,
@@ -437,6 +434,7 @@ def main(input,
          repair,
          plot_buildings,
          with_cohesion,
+         single_threaded,
          density_2d,
          density_3d):
     cm = json.load(input)
@@ -469,35 +467,50 @@ def main(input,
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    from concurrent.futures import ProcessPoolExecutor
+    if single_threaded:
+        for obj in tqdm(cm["CityObjects"]):
+            errors = get_errors_from_report(report, obj, cm)
+            obj, vals = process_building(cm["CityObjects"][obj],
+                             obj,
+                             errors,
+                             filter,
+                             repair,
+                             plot_buildings,
+                             with_cohesion,
+                             density_2d,
+                             density_3d,
+                             vertices)
+            stats[obj] = vals
+    else:
+        from concurrent.futures import ProcessPoolExecutor
 
-    num_objs = len(cm["CityObjects"])
-    num_cores = 4
+        num_objs = len(cm["CityObjects"])
+        num_cores = 4
 
-    with ProcessPoolExecutor(max_workers=num_cores) as pool:
-        with tqdm(total=len(cm["CityObjects"])) as progress:
-            futures = []
+        with ProcessPoolExecutor(max_workers=num_cores) as pool:
+            with tqdm(total=num_objs) as progress:
+                futures = []
 
-            for obj in cm["CityObjects"]:
-                future = pool.submit(process_building,
-                                    cm,
-                                    obj,
-                                    report,
-                                    val3dity_report,
-                                    filter,
-                                    repair,
-                                    plot_buildings,
-                                    with_cohesion,
-                                    density_2d,
-                                    density_3d,
-                                    vertices)
-                future.add_done_callback(lambda p: progress.update())
-                futures.append(future)
-            
-            results = []
-            for future in futures:
-                obj, vals = future.result()
-                stats[obj] = vals
+                for obj in cm["CityObjects"]:
+                    errors = get_errors_from_report(report, obj, cm)
+                    future = pool.submit(process_building,
+                                        cm["CityObjects"][obj],
+                                        obj,
+                                        errors,
+                                        filter,
+                                        repair,
+                                        plot_buildings,
+                                        with_cohesion,
+                                        density_2d,
+                                        density_3d,
+                                        vertices)
+                    future.add_done_callback(lambda p: progress.update())
+                    futures.append(future)
+                
+                results = []
+                for future in futures:
+                    obj, vals = future.result()
+                    stats[obj] = vals
 
     # orientation_plot(total_xy, bin_edges, title="Orientation plot")
     # orientation_plot(total_xz, bin_edges, title="XZ plot")
