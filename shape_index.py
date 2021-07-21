@@ -513,6 +513,9 @@ def dispersion_3d(mesh, grid, density=0.5):
 def roughness_index_2d(shape, density=0.2):
     c = shape.centroid
     b = shape.boundary
+
+    if b.length < 1:
+        return -1
         
     r_ibp = 0
     for l in np.arange(0, b.length, density):
@@ -528,6 +531,9 @@ def roughness_index_3d(mesh, grid, density=0.5):
     centroid = np.mean(grid, axis=0)
         
     s_grid = create_surface_grid(mesh, density)
+
+    if len(s_grid) == 0:
+        return -1
         
     r_ibp = 0
     for p in s_grid:
