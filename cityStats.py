@@ -554,6 +554,9 @@ def main(input,
                                 density_3d,
                                 vertices,
                                 columns)
+                if vals is None:
+                    print(f"Issue with {obj}! Omitting...")
+                    continue
                 stats[obj] = vals
             except Exception as e:
                 print(f"Problem with {obj}")
@@ -590,6 +593,9 @@ def main(input,
                 for future in futures:
                     try:
                         obj, vals = future.result()
+                        if vals is None:
+                            print(f"Issue with {obj}! Omitting...")
+                            continue
                         stats[obj] = vals
                     except:
                         print(f"Problem with {obj}")
