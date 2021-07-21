@@ -426,6 +426,7 @@ def process_building(building,
 @click.option('-p', '--plot-buildings', flag_value=True)
 @click.option('-c', '--with-cohesion', flag_value=True)
 @click.option('-s', '--single-threaded', flag_value=True)
+@click.option('-b', '--break-on-error', flag_value=True)
 @click.option('-j', '--jobs', default=1)
 @click.option('--density-2d', default=1)
 @click.option('--density-3d', default=1)
@@ -437,6 +438,7 @@ def main(input,
          plot_buildings,
          with_cohesion,
          single_threaded,
+         break_on_error,
          jobs,
          density_2d,
          density_3d):
@@ -558,7 +560,8 @@ def main(input,
                     stats[obj] = vals
             except Exception as e:
                 print(f"Problem with {obj}")
-                raise e
+                if break_on_error:
+                    raise e
 
     else:
         from concurrent.futures import ProcessPoolExecutor
@@ -593,9 +596,10 @@ def main(input,
                         obj, vals = future.result()
                         if not vals is None:
                             stats[obj] = vals
-                    except:
+                    except Exception as e:
                         print(f"Problem with {obj}")
-                        raise e
+                        if break_on_error:
+                            raise e
 
     # orientation_plot(total_xy, bin_edges, title="Orientation plot")
     # orientation_plot(total_xz, bin_edges, title="XZ plot")
