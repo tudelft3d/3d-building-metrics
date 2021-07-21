@@ -12,7 +12,7 @@ def get_points_of_type(mesh, surface_type):
     
     idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
 
-    points = np.array([mesh.cell_points(i) for i in range(mesh.number_of_cells)], dtype=object)
+    points = np.array([mesh.cell_points(i) for i in range(mesh.number_of_cells)])
 
     return np.vstack(points[idxs])
 

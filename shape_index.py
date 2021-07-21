@@ -433,8 +433,12 @@ def range_3d(mesh):
     
     r2 = -1
 
+    pts = mesh.clean().points
+    t = np.mean(pts, axis=0)
+    pts = pts - t
+
     while r2 < 0:
-        r2 = get_bounding_ball_radius(mesh.points)
+        r2 = get_bounding_ball_radius(pts)
     
     r_scc = math.sqrt(r2)
     
