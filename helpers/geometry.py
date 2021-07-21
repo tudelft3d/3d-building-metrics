@@ -13,6 +13,9 @@ def surface_normal(poly):
         n[1] += (v_curr[2] - v_next[2]) * (v_curr[0] + v_next[0])
         n[2] += (v_curr[0] - v_next[0]) * (v_curr[1] + v_next[1])
 
+    if all([c == 0 for c in n]):
+        raise ValueError("No normal. Possible colinear points!")
+
     normalised = [i/np.linalg.norm(n) for i in n]
 
     return normalised

@@ -172,10 +172,16 @@ def create_surface_grid(mesh, density=1):
         
         pts = mesh.cell_points(i)
         
-        normal = surface_normal(pts)
+        try:
+            normal = surface_normal(pts)
+        except:
+            continue
         
         pts_2d = project_2d(pts, normal)
         poly_2d = Polygon(pts_2d)
+
+        if not poly_2d.is_valid:
+            continue
         
         grid = create_grid_2d(poly_2d, density)
         grid = MultiPoint(grid).intersection(poly_2d)
@@ -240,6 +246,12 @@ def proximity_2d(shape, density=1, grid=None):
     
     if isinstance(grid, list):
         grid = MultiPoint(grid).intersection(shape)
+
+        if grid.is_empty:
+            return -1
+
+        if grid.geom_type == "Point":
+            grid = MultiPoint([grid])
     
     centroid = shape.centroid
     
@@ -311,6 +323,12 @@ def spin_2d(shape, grid=None, density=1):
     
     if isinstance(grid, list):
         grid = MultiPoint(grid).intersection(shape)
+
+        if grid.is_empty:
+            return -1
+
+        if grid.geom_type == "Point":
+            grid = MultiPoint([grid])
     
     centroid = shape.centroid
     
@@ -341,6 +359,12 @@ def depth_2d(shape, grid=None, density=1):
     
     if isinstance(grid, list):
         grid = MultiPoint(grid).intersection(shape)
+
+        if grid.is_empty:
+            return -1
+
+        if grid.geom_type == "Point":
+            grid = MultiPoint([grid])
         
     return 3 * np.mean([p.distance(shape.boundary) for p in grid]) / math.sqrt(shape.area / math.pi)
 
@@ -378,6 +402,9 @@ def largest_inscribed_sphere(mesh, grid=None, density=1, check_surface=False):
         grid = pv.PolyData(grid)
         
     dist = grid.compute_implicit_distance(mesh)
+
+    if grid.n_points == 0:
+        return pv.Sphere(center=(0, 0, 0), radius=(mesh.bounds[2] - mesh.bounds[0]) / 2)
     
     # The largest inscribed circle's radius is the largest (internal) distance,
     # hence the lowest value (as internal distance is negative)
@@ -390,6 +417,9 @@ def girth_2d(shape):
     """Return the girth index in 2D for a given polygon"""
     
     lic = largest_inscribed_circle(shape)
+
+    if lic.is_empty:
+        return -1
     
     # Compute the radius as half the bounding box width
     r = (lic.bounds[2] - lic.bounds[0]) / 2

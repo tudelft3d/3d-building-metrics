@@ -252,7 +252,8 @@ def process_building(building,
                      with_cohesion,
                      density_2d,
                      density_3d,
-                     vertices):
+                     vertices,
+                     columns):
 
     if not filter is None and filter != obj:
         return obj, None
@@ -274,7 +275,7 @@ def process_building(building,
     try:
         tri_mesh = cityjson.to_triangulated_polydata(geom, vertices)
     except:
-        click.warning(f"{obj} geometry parsing crashed! Omitting...")
+        print(f"{obj} geometry parsing crashed! Omitting...")
         return obj, [building["type"]] + ["NA" for r in range(len(columns) - 1)]
 
     if plot_buildings:
@@ -469,60 +470,6 @@ def main(input,
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    if single_threaded or jobs == 1:
-        for obj in tqdm(cm["CityObjects"]):
-            errors = get_errors_from_report(report, obj, cm)
-            try:
-                obj, vals = process_building(cm["CityObjects"][obj],
-                                obj,
-                                errors,
-                                filter,
-                                repair,
-                                plot_buildings,
-                                with_cohesion,
-                                density_2d,
-                                density_3d,
-                                vertices)
-                stats[obj] = vals
-            except Exception as e:
-                print(f"Problem with {obj}")
-                raise e
-
-    else:
-        from concurrent.futures import ProcessPoolExecutor
-
-        num_objs = len(cm["CityObjects"])
-        num_cores = jobs
-
-        with ProcessPoolExecutor(max_workers=num_cores) as pool:
-            with tqdm(total=num_objs) as progress:
-                futures = []
-
-                for obj in cm["CityObjects"]:
-                    errors = get_errors_from_report(report, obj, cm)
-                    future = pool.submit(process_building,
-                                        cm["CityObjects"][obj],
-                                        obj,
-                                        errors,
-                                        filter,
-                                        repair,
-                                        plot_buildings,
-                                        with_cohesion,
-                                        density_2d,
-                                        density_3d,
-                                        vertices)
-                    future.add_done_callback(lambda p: progress.update())
-                    futures.append(future)
-                
-                results = []
-                for future in futures:
-                    obj, vals = future.result()
-                    stats[obj] = vals
-
-    # orientation_plot(total_xy, bin_edges, title="Orientation plot")
-    # orientation_plot(total_xz, bin_edges, title="XZ plot")
-    # orientation_plot(total_yz, bin_edges, title="YZ plot")
-
     columns = [
         "type", # type of the city object
         "point count", # total number of points in the city object
@@ -592,16 +539,65 @@ def main(input,
         "roughness index (3d)",
     ]
 
-    # print(f"Cohesion | {cohesion_2d(shape):.5f} | {cohesion_3d(mesh, grid):.5f}")
-    # print(f"Proximity | {proximity_2d(shape, density=density_2d):.5f} | {proximity_3d(mesh, grid):.5f}")
-    # print(f"Exchange | {exchange_2d(shape):.5f} | {exchange_3d(mesh, density=density_3d):.5f}")
-    # print(f"Spin | {spin_2d(shape, density=density_2d):.5f} | {spin_3d(mesh, grid):.5f}")
-    # print(f"Perimeter/Circumference | {perimeter_index(shape):.5f} | {circumference_index_3d(mesh):.5f} ")
-    # print(f"Depth | {depth_2d(shape, density=density_2d):.5f} | {depth_3d(mesh, density=density_3d):.5f} ")
-    # print(f"Girth | {girth_2d(shape):.5f} | {girth_3d(mesh, grid):.5f}")
-    # print(f"Dispersion | {dispersion_2d(shape, density=density_2d):.5f} | {dispersion_3d(mesh, grid, density=density_3d):0.5f}")
-    # print(f"Range | {range_2d(shape):.5f} | {range_3d(mesh):.5f}")
-    # print(f"Roughness index | {roughness_index_2d(shape, density_2d)} | {roughness_index_3d(mesh, grid, density_2d)}")
+    if single_threaded or jobs == 1:
+        for obj in tqdm(cm["CityObjects"]):
+            errors = get_errors_from_report(report, obj, cm)
+            try:
+                obj, vals = process_building(cm["CityObjects"][obj],
+                                obj,
+                                errors,
+                                filter,
+                                repair,
+                                plot_buildings,
+                                with_cohesion,
+                                density_2d,
+                                density_3d,
+                                vertices,
+                                columns)
+                stats[obj] = vals
+            except Exception as e:
+                print(f"Problem with {obj}")
+                raise e
+
+    else:
+        from concurrent.futures import ProcessPoolExecutor
+
+        num_objs = len(cm["CityObjects"])
+        num_cores = jobs
+
+        with ProcessPoolExecutor(max_workers=num_cores) as pool:
+            with tqdm(total=num_objs) as progress:
+                futures = []
+
+                for obj in cm["CityObjects"]:
+                    errors = get_errors_from_report(report, obj, cm)
+                    future = pool.submit(process_building,
+                                        cm["CityObjects"][obj],
+                                        obj,
+                                        errors,
+                                        filter,
+                                        repair,
+                                        plot_buildings,
+                                        with_cohesion,
+                                        density_2d,
+                                        density_3d,
+                                        vertices,
+                                        columns)
+                    future.add_done_callback(lambda p: progress.update())
+                    futures.append(future)
+                
+                results = []
+                for future in futures:
+                    try:
+                        obj, vals = future.result()
+                        stats[obj] = vals
+                    except:
+                        print(f"Problem with {obj}")
+                        raise e
+
+    # orientation_plot(total_xy, bin_edges, title="Orientation plot")
+    # orientation_plot(total_xz, bin_edges, title="XZ plot")
+    # orientation_plot(total_yz, bin_edges, title="YZ plot")
 
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
     df.index.name = "id"
