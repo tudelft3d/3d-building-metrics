@@ -425,6 +425,7 @@ def process_building(building,
 @click.option('-p', '--plot-buildings', flag_value=True)
 @click.option('-c', '--with-cohesion', flag_value=True)
 @click.option('-s', '--single-threaded', flag_value=True)
+@click.option('-j', '--jobs', default=1)
 @click.option('--density-2d', default=1)
 @click.option('--density-3d', default=1)
 def main(input,
@@ -435,6 +436,7 @@ def main(input,
          plot_buildings,
          with_cohesion,
          single_threaded,
+         jobs,
          density_2d,
          density_3d):
     cm = json.load(input)
@@ -467,25 +469,30 @@ def main(input,
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    if single_threaded:
+    if single_threaded or jobs == 1:
         for obj in tqdm(cm["CityObjects"]):
             errors = get_errors_from_report(report, obj, cm)
-            obj, vals = process_building(cm["CityObjects"][obj],
-                             obj,
-                             errors,
-                             filter,
-                             repair,
-                             plot_buildings,
-                             with_cohesion,
-                             density_2d,
-                             density_3d,
-                             vertices)
-            stats[obj] = vals
+            try:
+                obj, vals = process_building(cm["CityObjects"][obj],
+                                obj,
+                                errors,
+                                filter,
+                                repair,
+                                plot_buildings,
+                                with_cohesion,
+                                density_2d,
+                                density_3d,
+                                vertices)
+                stats[obj] = vals
+            except Exception as e:
+                print(f"Problem with {obj}")
+                raise e
+
     else:
         from concurrent.futures import ProcessPoolExecutor
 
         num_objs = len(cm["CityObjects"])
-        num_cores = 4
+        num_cores = jobs
 
         with ProcessPoolExecutor(max_workers=num_cores) as pool:
             with tqdm(total=num_objs) as progress:

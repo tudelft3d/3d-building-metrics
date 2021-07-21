@@ -39,7 +39,7 @@ def to_shapely(geom, vertices, ground_only=True):
         
         ground_idxs = [semantics["surfaces"][i]["type"] == "GroundSurface" for i in values]
 
-        boundaries = np.array(boundaries)[ground_idxs]
+        boundaries = np.array(boundaries, dtype=object)[ground_idxs]
     
     shape = MultiPolygon([Polygon([vertices[v] for v in boundary[0]]) for boundary in boundaries])
 
