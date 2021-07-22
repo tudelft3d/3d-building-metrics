@@ -273,7 +273,7 @@ def process_building(building,
     mesh = cityjson.to_polydata(geom, vertices).clean()
 
     try:
-        tri_mesh = cityjson.to_triangulated_polydata(geom, vertices)
+        tri_mesh = cityjson.to_triangulated_polydata(geom, vertices).clean()
     except:
         print(f"{obj} geometry parsing crashed! Omitting...")
         return obj, [building["type"]] + ["NA" for r in range(len(columns) - 1)]
@@ -344,7 +344,7 @@ def process_building(building,
     # Get the dimensions of the 2D oriented bounding box
     S, L = si.get_box_dimensions(obb_2d)
 
-    voxel = pv.voxelize(mesh, density=density_3d, check_surface=False)
+    voxel = pv.voxelize(tri_mesh, density=density_3d, check_surface=False)
     grid = voxel.cell_centers().points
 
     return obj, [
@@ -428,8 +428,8 @@ def process_building(building,
 @click.option('-s', '--single-threaded', flag_value=True)
 @click.option('-b', '--break-on-error', flag_value=True)
 @click.option('-j', '--jobs', default=1)
-@click.option('--density-2d', default=1)
-@click.option('--density-3d', default=1)
+@click.option('--density-2d', default=1.0)
+@click.option('--density-3d', default=1.0)
 def main(input,
          output,
          val3dity_report,
@@ -605,12 +605,15 @@ def main(input,
     # orientation_plot(total_xz, bin_edges, title="XZ plot")
     # orientation_plot(total_yz, bin_edges, title="YZ plot")
 
+    click.echo("Building data frame...")
+
     df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
     df.index.name = "id"
 
     if output is None:
         print(df)
     else:
+        click.echo("Writing output...")
         df.to_csv(output)
 
 if __name__ == "__main__":
