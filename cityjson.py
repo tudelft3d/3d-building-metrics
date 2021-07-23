@@ -85,7 +85,10 @@ def to_triangulated_polydata(geom, vertices):
         semantic_types = [semantics["surfaces"][i]["type"] for i in values]
 
     for fid, face in enumerate(boundaries):
-        points, triangles = triangulate_polygon(face, vertices)
+        try:
+            points, triangles = triangulate_polygon(face, vertices)
+        except:
+            continue
 
         t_count = int(len(triangles) / 4)
         if t_count == 0:

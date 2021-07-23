@@ -304,7 +304,11 @@ def exchange_3d(mesh, evs=None, density=0.25, engine="igl"):
         voxel = pv.voxelize(mesh, density=density, check_surface=False)
         grid = voxel.cell_centers().points
 
-        centroid = np.mean(grid, axis=0)
+        if len(grid) == 0:
+            centroid = mesh.center
+        else:
+            centroid = np.mean(grid, axis=0)
+
         evs = equal_volume_sphere(mesh, centroid)
     
     if mesh.n_open_edges > 0:
@@ -313,7 +317,10 @@ def exchange_3d(mesh, evs=None, density=0.25, engine="igl"):
     pm_mesh = to_pymesh(mesh)
     pm_evs = to_pymesh(evs)
 
-    inter = pymesh.boolean(pm_mesh, pm_evs, operation="intersection", engine=engine)
+    try:
+        inter = pymesh.boolean(pm_mesh, pm_evs, operation="intersection", engine=engine)
+    except:
+        return -1
 
     return inter.volume / mesh.volume
 
