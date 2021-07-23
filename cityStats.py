@@ -330,9 +330,15 @@ def process_building(building,
         ground_z = 0
     else:
         height_stats = compute_stats([v[2] for v in roof_points])
-        ground_z = min([v[2] for v in ground_points])
+        if len(ground_points) > 0:
+            ground_z = min([v[2] for v in ground_points])
+        else:
+            ground_z = mesh.bounds[4]
     
-    shape = cityjson.to_shapely(geom, vertices)
+    if len(ground_points) > 0:
+        shape = cityjson.to_shapely(geom, vertices)
+    else:
+        shape = cityjson.to_shapely(geom, vertices, ground_only=False)
 
     obb_2d = cityjson.to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
 

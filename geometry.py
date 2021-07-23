@@ -14,6 +14,9 @@ def get_points_of_type(mesh, surface_type):
 
     points = np.array([mesh.cell_points(i) for i in range(mesh.number_of_cells)], dtype=object)
 
+    if all([i == False for i in idxs]):
+        return []
+
     return np.vstack(points[idxs])
 
 def extrude(shape, min, max):
