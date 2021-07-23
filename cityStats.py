@@ -397,23 +397,24 @@ def process_building(building,
         si.equivalent_rectangular_index(shape),
         si.equivalent_prism_index(fixed, obb),
         si.proximity_2d(shape, density=density_2d),
-        si.proximity_3d(tri_mesh, grid, density=density_3d),
+        si.proximity_3d(tri_mesh, grid, density=density_3d) if len(grid) > 0 else "NA",
         si.exchange_2d(shape),
         si.exchange_3d(tri_mesh, density=density_3d),
         si.spin_2d(shape, density=density_2d),
-        si.spin_3d(tri_mesh, grid, density=density_3d),
+        si.spin_3d(tri_mesh, grid, density=density_3d) if len(grid) > 0 else "NA",
         si.perimeter_index(shape),
         si.circumference_index_3d(tri_mesh),
         si.depth_2d(shape, density=density_2d),
-        si.depth_3d(tri_mesh, density=density_3d),
+        si.depth_3d(tri_mesh, density=density_3d) if len(grid) > 0 else "NA",
         si.girth_2d(shape),
-        si.girth_3d(tri_mesh, grid, density=density_3d),
+        si.girth_3d(tri_mesh, grid, density=density_3d) if len(grid) > 0 else "NA",
         si.dispersion_2d(shape, density=density_2d),
-        si.dispersion_3d(tri_mesh, grid, density=density_3d),
+        si.dispersion_3d(tri_mesh, grid, density=density_3d) if len(grid) > 0 else "NA",
         si.range_2d(shape),
         si.range_3d(tri_mesh),
         si.roughness_index_2d(shape, density=density_2d),
-        si.roughness_index_3d(tri_mesh, grid, density_2d)
+        si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 0 else "NA",
+        len(grid)
     ]
 
 # Assume semantic surfaces
@@ -539,6 +540,7 @@ def main(input,
         "range index (3d)",
         "roughness index (2d)",
         "roughness index (3d)",
+        "number of grid points"
     ]
 
     if single_threaded or jobs == 1:
