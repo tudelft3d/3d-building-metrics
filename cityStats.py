@@ -295,7 +295,7 @@ def process_building(building,
     # total_yz = total_yz + yzc
 
     if repair:
-        mfix = MeshFix(mesh)
+        mfix = MeshFix(tri_mesh)
         mfix.repair()
 
         fixed = mfix.mesh
@@ -414,7 +414,8 @@ def process_building(building,
         si.range_3d(tri_mesh),
         si.roughness_index_2d(shape, density=density_2d),
         si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 0 else "NA",
-        len(grid)
+        len(grid),
+        tri_mesh.n_open_edges
     ]
 
 # Assume semantic surfaces
@@ -540,7 +541,8 @@ def main(input,
         "range index (3d)",
         "roughness index (2d)",
         "roughness index (3d)",
-        "number of grid points"
+        "grid point count",
+        "hole count"
     ]
 
     if single_threaded or jobs == 1:
