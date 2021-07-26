@@ -19,6 +19,14 @@ def get_points_of_type(mesh, surface_type):
 
     return np.vstack(points[idxs])
 
+def move_to_origin(mesh):
+    """Moves the object to the origin"""
+    pts = mesh.points
+    t = np.min(pts, axis=0)
+    mesh.points = mesh.points - t
+
+    return mesh, t
+
 def extrude(shape, min, max):
     """Create a pyvista mesh from a polygon"""
 

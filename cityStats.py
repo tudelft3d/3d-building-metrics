@@ -278,9 +278,11 @@ def process_building(building,
         print(f"{obj} geometry parsing crashed! Omitting...")
         return obj, [building["type"]] + ["NA" for r in range(len(columns) - 1)]
 
+    tri_mesh, t = geometry.move_to_origin(tri_mesh)
+
     if plot_buildings:
         print(f"Plotting {obj}")
-        tri_mesh.plot()
+        tri_mesh.plot(show_grid=True)
 
     # get_surface_plot(dataset, title=obj)
 
