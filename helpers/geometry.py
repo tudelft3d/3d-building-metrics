@@ -34,8 +34,9 @@ def axes_of_normal(normal):
 
     return x_axis, y_axis
 
-def project_2d(points, normal):
-    origin = points[0]
+def project_2d(points, normal, origin=None):
+    if origin is None:
+        origin = points[0]
 
     x_axis, y_axis = axes_of_normal(normal)
      
