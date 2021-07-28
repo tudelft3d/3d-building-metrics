@@ -1,8 +1,6 @@
-# Star Wars
+# UM3D
 
-STAtistics for R in WAys to Research StandardCityJSON
-
-*(you can also call it CityJSON geometric stats, but that's boring)*
+Urban Morphology in 3D. Elevating urban morphology to the next level 😉
 
 ## Installation
 
@@ -12,7 +10,7 @@ You need to install all dependencies first:
 pip install -r requirements.txt
 ```
 
-Then take your time and install [pymesh](https://pymesh.readthedocs.io/en/latest/installation.html)
+Then take your time and install [pymesh](https://pymesh.readthedocs.io/en/latest/installation.html).
 
 ## Wat is het?
 
@@ -27,6 +25,14 @@ Yeah:
 
 ## How?
 
+Running it, saving it, and including a [val3dity](https://github.com/tudelft3d/val3dity) report:
+
 ```
 python cityStats.py [file_path] -o [output.csv] [-v val3dity_report.json]
+```
+
+Visualising a specific building, which can help with troubleshooting:
+
+```
+python cityStats.py [file_path] -p -f [unique_id]
 ```
