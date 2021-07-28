@@ -12,3 +12,5 @@ mapbox-earcut
 python-polylabel
 miniball
 ipygany
+rtree
+scikit-learn
