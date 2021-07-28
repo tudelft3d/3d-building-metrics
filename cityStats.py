@@ -513,7 +513,7 @@ def main(input,
         "mode Z", # mode of Z of roof points
         "ground Z", # Z value of the ground points
         "orientation_values", # values of orientation plot of wall surfaces normals
-        "orientaiton_edges", # edges of orientation plot of wall surfaces normals
+        "orientation_edges", # edges of orientation plot of wall surfaces normals
         "errors", # error codes from val3dity for the city object
         "valid", # validity of the city object
         "circularity (2d)",
