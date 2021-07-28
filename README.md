@@ -31,6 +31,12 @@ Running it, saving it, and including a [val3dity](https://github.com/tudelft3d/v
 python cityStats.py [file_path] -o [output.csv] [-v val3dity_report.json]
 ```
 
+Default is single-threaded, define the number of threads with:
+
+```
+python cityStats.py [file_path] -j [number]
+```
+
 Visualising a specific building, which can help with troubleshooting:
 
 ```
