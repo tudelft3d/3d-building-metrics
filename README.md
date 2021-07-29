@@ -42,3 +42,9 @@ Visualising a specific building, which can help with troubleshooting:
 ```
 python cityStats.py [file_path] -p -f [unique_id]
 ```
+
+Running multiple files in a folder and checking with [val3dity](https://github.com/tudelft3d/val3dity) (make sure you have val3dity installed):
+
+```
+for i in *.json; do val3dity $i --report "${i%.json}_v3.json"; python cityStats.py $i -o "${i%.json}.csv" -v "${i%.json}_v3.json"; done
+```
