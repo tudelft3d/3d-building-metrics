@@ -358,6 +358,7 @@ def process_building(building,
     return obj, [
         building["type"],
         len(points),
+        fixed.n_points,
         len(cityjson.get_surface_boundaries(geom)),
         fixed.volume,
         ch_volume,
@@ -486,6 +487,7 @@ def main(input,
     columns = [
         "type", # type of the city object
         "point count", # total number of points in the city object
+        "unique point count",
         "surface count", # total number of surfaces in the city object
         "actual volume", # volume of the geometry of city object
         "convex hull volume", # volume of the convex hull of the city object
