@@ -367,6 +367,8 @@ def process_building(building,
 
     shared_area = 0
 
+    closest_distance = 10000
+
     if len(neighbours) > 0:
         # Get neighbour meshes
         n_meshes = [cityjson.to_triangulated_polydata(geom, vertices).clean()
@@ -380,6 +382,14 @@ def process_building(building,
                         for neighbour in n_meshes])
         
         shared_area = sum([wall["area"][0] for wall in walls])
+
+        # Find the closest distance
+        for mesh in n_meshes:
+            mesh.compute_implicit_distance(fixed, inplace=True)
+                        
+            closest_distance = min(closest_distance, np.min(mesh["implicit_distance"]))
+        
+        closest_distance = max(closest_distance, 0)
 
     return obj, [
         building["type"],
@@ -453,6 +463,7 @@ def process_building(building,
         len(grid),
         tri_mesh.n_open_edges,
         shared_area,
+        closest_distance,
         shape
     ]
 
@@ -586,6 +597,7 @@ def main(input,
         "3d grid point count",
         "hole count",
         "shared walls area",
+        "closest distance",
         "geometry"
     ]
 
@@ -610,6 +622,10 @@ def main(input,
                                                zmax),
                                             objects=True)
                       if n.object != obj]
+            
+            # If no adjacent building is found, find the 5 nearest neighbours
+            if len(objids) == 0:
+                objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
 
             neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
             try:
@@ -657,6 +673,9 @@ def main(input,
                                                     zmax),
                                                     objects=True)
                             if n.object != obj]
+
+                    if len(objids) == 0:
+                        objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
 
                     neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
                     future = pool.submit(process_building,
