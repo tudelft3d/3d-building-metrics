@@ -6,6 +6,7 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import geopandas
 import pyvista as pv
 import rtree.index
 import scipy.spatial as ss
@@ -410,9 +411,9 @@ def process_building(building,
         height_stats["Std"],
         height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
         ground_z,
-        bin_count,
-        bin_edges,
-        errors,
+        str(bin_count),
+        str(bin_edges),
+        str(errors),
         len(errors) == 0,
         si.circularity(shape),
         si.hemisphericality(fixed),
@@ -451,13 +452,15 @@ def process_building(building,
         len(si.create_grid_2d(shape, density=density_2d)),
         len(grid),
         tri_mesh.n_open_edges,
-        shared_area
+        shared_area,
+        shape
     ]
 
 # Assume semantic surfaces
 @click.command()
 @click.argument("input", type=click.File("rb"))
 @click.option('-o', '--output', type=click.File("wb"))
+@click.option('-g', '--gpkg')
 @click.option('-v', '--val3dity-report', type=click.File("rb"))
 @click.option('-f', '--filter')
 @click.option('-r', '--repair', flag_value=True)
@@ -470,6 +473,7 @@ def process_building(building,
 @click.option('--density-3d', default=1.0)
 def main(input,
          output,
+         gpkg,
          val3dity_report,
          filter,
          repair,
@@ -581,7 +585,8 @@ def main(input,
         "2d grid point count",
         "3d grid point count",
         "hole count",
-        "shared walls area"
+        "shared walls area",
+        "geometry"
     ]
 
     # Build the index of the city model
@@ -695,6 +700,10 @@ def main(input,
     else:
         click.echo("Writing output...")
         df.to_csv(output)
+    
+    if not gpkg is None:
+        gdf = geopandas.GeoDataFrame(df, geometry="geometry")
+        gdf.to_file(gpkg, driver="GPKG")
 
 if __name__ == "__main__":
     main()
