@@ -393,6 +393,7 @@ def process_building(building,
 
     return obj, [
         building["type"],
+        geom["lod"],
         len(points),
         fixed.n_points,
         len(cityjson.get_surface_boundaries(geom)),
@@ -527,6 +528,7 @@ def main(input,
 
     columns = [
         "type", # type of the city object
+        "lod",
         "point count", # total number of points in the city object
         "unique point count",
         "surface count", # total number of surfaces in the city object
