@@ -1,18 +1,20 @@
-import click
 import json
+import math
+from concurrent.futures import ProcessPoolExecutor
+
+import click
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pyvista as pv
+import rtree.index
 import scipy.spatial as ss
 from pymeshfix import MeshFix
-import pandas as pd
-import math
-import matplotlib.pyplot as plt
 from tqdm import tqdm
-from helpers.minimumBoundingBox import MinimumBoundingBox
-import shape_index as si
+
 import cityjson
 import geometry
-from concurrent.futures import ProcessPoolExecutor
+import shape_index as si
 
 def get_bearings(values, num_bins, weights):
     """Divides the values depending on the bins"""
@@ -243,6 +245,12 @@ def validate_report(report, cm):
     # TODO: Actually validate the report and that it corresponds to this cm
     return True
 
+def tree_generator_function(cm, verts):
+    for i, objid in enumerate(cm["CityObjects"]):
+        obj = cm["CityObjects"][objid]
+        xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(obj["geometry"][0], verts)
+        yield (i, (xmin, ymin, zmin, xmax, ymax, zmax), objid)
+
 def process_building(building,
                      obj,
                      errors,
@@ -253,7 +261,8 @@ def process_building(building,
                      density_2d,
                      density_3d,
                      vertices,
-                     columns):
+                     columns,
+                     neighbours=[]):
 
     if not filter is None and filter != obj:
         return obj, None
@@ -355,6 +364,22 @@ def process_building(building,
     voxel = pv.voxelize(tri_mesh, density=density_3d, check_surface=False)
     grid = voxel.cell_centers().points
 
+    shared_area = 0
+
+    if len(neighbours) > 0:
+        # Get neighbour meshes
+        n_meshes = [cityjson.to_triangulated_polydata(geom, vertices).clean()
+                    for geom in neighbours]
+        
+        for mesh in n_meshes:
+            mesh.points -= t
+        
+        # Compute shared walls
+        walls = np.hstack([geometry.intersect_surfaces([fixed, neighbour])
+                        for neighbour in n_meshes])
+        
+        shared_area = sum([wall["area"][0] for wall in walls])
+
     return obj, [
         building["type"],
         len(points),
@@ -425,7 +450,8 @@ def process_building(building,
         si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 2 else "NA",
         len(si.create_grid_2d(shape, density=density_2d)),
         len(grid),
-        tri_mesh.n_open_edges
+        tri_mesh.n_open_edges,
+        shared_area
     ]
 
 # Assume semantic surfaces
@@ -554,12 +580,33 @@ def main(input,
         "roughness index (3d)",
         "2d grid point count",
         "3d grid point count",
-        "hole count"
+        "hole count",
+        "shared walls area"
     ]
+
+    # Build the index of the city model
+    p = rtree.index.Property()
+    p.dimension = 3
+    r = rtree.index.Index(tree_generator_function(cm, vertices), properties=p)
 
     if single_threaded or jobs == 1:
         for obj in tqdm(cm["CityObjects"]):
             errors = get_errors_from_report(report, obj, cm)
+            
+            # Get neighbours
+            geom = cm["CityObjects"][obj]["geometry"][0]
+            xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
+            objids = [n.object
+                      for n in r.intersection((xmin,
+                                               ymin,
+                                               zmin,
+                                               xmax,
+                                               ymax,
+                                               zmax),
+                                            objects=True)
+                      if n.object != obj]
+
+            neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
             try:
                 obj, vals = process_building(cm["CityObjects"][obj],
                                 obj,
@@ -571,7 +618,8 @@ def main(input,
                                 density_2d,
                                 density_3d,
                                 vertices,
-                                columns)
+                                columns,
+                                neighbours)
                 if not vals is None:
                     stats[obj] = vals
             except Exception as e:
@@ -591,6 +639,21 @@ def main(input,
 
                 for obj in cm["CityObjects"]:
                     errors = get_errors_from_report(report, obj, cm)
+
+                    # Get neighbours
+                    geom = cm["CityObjects"][obj]["geometry"][0]
+                    xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
+                    objids = [n.object
+                            for n in r.intersection((xmin,
+                                                    ymin,
+                                                    zmin,
+                                                    xmax,
+                                                    ymax,
+                                                    zmax),
+                                                    objects=True)
+                            if n.object != obj]
+
+                    neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
                     future = pool.submit(process_building,
                                         cm["CityObjects"][obj],
                                         obj,
@@ -602,7 +665,8 @@ def main(input,
                                         density_2d,
                                         density_3d,
                                         vertices,
-                                        columns)
+                                        columns,
+                                        neighbours)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
                 

@@ -3,6 +3,7 @@
 import numpy as np
 import mapbox_earcut as earcut
 import pyvista as pv
+from shapely.geometry import Polygon, MultiPolygon
 
 def surface_normal(poly):
     n = [0.0, 0.0, 0.0]
@@ -86,3 +87,40 @@ def triangulate_polygon(face, vertices):
     triangles = np.hstack([[3] + list(t) for t in result.reshape(-1,3)])
 
     return points, triangles
+
+def plane_params(normal, origin, rounding=2):
+    """Returns the params (a, b, c, d) of the plane equation for the given
+    normal and origin point.
+    """
+    a, b, c = np.round_(normal, 3)
+    x0, y0, z0 = origin
+    
+    d = -(a * x0 + b * y0 + c * z0)
+    
+    if rounding >= 0:
+        d = round(d, rounding)
+    
+    return np.array([a, b, c, d])
+
+def project_mesh(mesh, normal, origin):
+    """Project the faces of a mesh to the given plane"""
+
+    p = []
+    for i in range(mesh.n_cells):
+        pts = mesh.cell_points(i)
+        
+        pts_2d = project_2d(pts, normal, origin)
+        
+        p.append(Polygon(pts_2d))
+    
+    return MultiPolygon(p).buffer(0)
+
+def to_3d(points, normal, origin):
+    """Returns the 3d coordinates of a 2d points from a given plane"""
+
+    xa, ya = axes_of_normal(normal)
+    
+    mat = np.array([xa, ya])
+    pts = np.array(points)
+    
+    return np.dot(pts, mat) + origin

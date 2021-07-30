@@ -103,3 +103,8 @@ def to_triangulated_polydata(geom, vertices):
     final_mesh.clean()
 
     return final_mesh
+
+def get_bbox(geom, verts):
+    pts = np.array(get_points(geom, verts))
+
+    return np.hstack([[np.min(pts[:, i]), np.max(pts[:, i])] for i in range(np.shape(pts)[1])])
