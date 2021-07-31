@@ -249,6 +249,10 @@ def validate_report(report, cm):
 def tree_generator_function(cm, verts):
     for i, objid in enumerate(cm["CityObjects"]):
         obj = cm["CityObjects"][objid]
+
+        if len(obj["geometry"]) == 0:
+            continue
+
         xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(obj["geometry"][0], verts)
         yield (i, (xmin, ymin, zmin, xmax, ymax, zmax), objid)
 
@@ -612,24 +616,29 @@ def main(input,
         for obj in tqdm(cm["CityObjects"]):
             errors = get_errors_from_report(report, obj, cm)
             
-            # Get neighbours
-            geom = cm["CityObjects"][obj]["geometry"][0]
-            xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
-            objids = [n.object
-                      for n in r.intersection((xmin,
-                                               ymin,
-                                               zmin,
-                                               xmax,
-                                               ymax,
-                                               zmax),
-                                            objects=True)
-                      if n.object != obj]
-            
-            # If no adjacent building is found, find the 5 nearest neighbours
-            if len(objids) == 0:
-                objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
+            building = cm["CityObjects"][obj]
 
-            neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
+            # Get neighbours
+            if len(building["geometry"]) > 0:
+                geom = building["geometry"][0]
+                xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
+                objids = [n.object
+                        for n in r.intersection((xmin,
+                                                ymin,
+                                                zmin,
+                                                xmax,
+                                                ymax,
+                                                zmax),
+                                                objects=True)
+                        if n.object != obj]
+
+                if len(objids) == 0:
+                    objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
+
+                neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
+            else:
+                neighbours = []
+            
             try:
                 obj, vals = process_building(cm["CityObjects"][obj],
                                 obj,
@@ -663,23 +672,29 @@ def main(input,
                 for obj in cm["CityObjects"]:
                     errors = get_errors_from_report(report, obj, cm)
 
+                    building = cm["CityObjects"][obj]
+
                     # Get neighbours
-                    geom = cm["CityObjects"][obj]["geometry"][0]
-                    xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
-                    objids = [n.object
-                            for n in r.intersection((xmin,
-                                                    ymin,
-                                                    zmin,
-                                                    xmax,
-                                                    ymax,
-                                                    zmax),
-                                                    objects=True)
-                            if n.object != obj]
+                    if len(building["geometry"]) > 0:
+                        geom = building["geometry"][0]
+                        xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
+                        objids = [n.object
+                                for n in r.intersection((xmin,
+                                                        ymin,
+                                                        zmin,
+                                                        xmax,
+                                                        ymax,
+                                                        zmax),
+                                                        objects=True)
+                                if n.object != obj]
 
-                    if len(objids) == 0:
-                        objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
+                        if len(objids) == 0:
+                            objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
 
-                    neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
+                        neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
+                    else:
+                        neighbours = []
+
                     future = pool.submit(process_building,
                                         cm["CityObjects"][obj],
                                         obj,
