@@ -256,18 +256,61 @@ def tree_generator_function(cm, verts):
         xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(obj["geometry"][0], verts)
         yield (i, (xmin, ymin, zmin, xmax, ymax, zmax), objid)
 
+def get_neighbours(cm, obj, r, verts):
+    """Return the neighbours of the given building"""
+
+    building = cm["CityObjects"][obj]
+
+    if len(building["geometry"]) == 0:
+        return []
+    
+    geom = building["geometry"][0]
+    xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
+    objids = [n.object
+            for n in r.intersection((xmin,
+                                    ymin,
+                                    zmin,
+                                    xmax,
+                                    ymax,
+                                    zmax),
+                                    objects=True)
+            if n.object != obj]
+
+    if len(objids) == 0:
+        objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
+
+    return [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
+
+class StatValuesBuilder:
+
+    def __init__(self, values, indices_list) -> None:
+        self.__values = values
+        self.__indices_list = indices_list
+
+    def compute_index(self, index_name):
+        """Returns True if the given index is supposed to be computed"""
+
+        return self.__indices_list is None or index_name in self.__indices_list
+    
+    def add_index(self, index_name, index_func):
+        """Adds the given index value to the dict"""
+
+        if self.compute_index(index_name):
+            self.__values[index_name] = index_func() 
+        else:
+            self.__values[index_name] = "NC"
+
 def process_building(building,
                      obj,
                      errors,
                      filter,
                      repair,
                      plot_buildings,
-                     with_cohesion,
                      density_2d,
                      density_3d,
                      vertices,
-                     columns,
-                     neighbours=[]):
+                     neighbours=[],
+                     custom_indices=None):
 
     if not filter is None and filter != obj:
         return obj, None
@@ -290,7 +333,7 @@ def process_building(building,
         tri_mesh = cityjson.to_triangulated_polydata(geom, vertices).clean()
     except:
         print(f"{obj} geometry parsing crashed! Omitting...")
-        return obj, [building["type"]] + ["NA" for r in range(len(columns) - 1)]
+        return obj, {"type": building["type"]}
 
     tri_mesh, t = geometry.move_to_origin(tri_mesh)
 
@@ -366,111 +409,119 @@ def process_building(building,
     # Get the dimensions of the 2D oriented bounding box
     S, L = si.get_box_dimensions(obb_2d)
 
-    voxel = pv.voxelize(tri_mesh, density=density_3d, check_surface=False)
-    grid = voxel.cell_centers().points
+    values = {
+        "type": building["type"],
+        "lod": geom["lod"],
+        "point_count": len(points),
+        "unique_point_count": fixed.n_points,
+        "surface_count": len(cityjson.get_surface_boundaries(geom)),
+        "actual_volume": fixed.volume,
+        "convex_hull_volume": ch_volume,
+        "obb_volume": obb.volume,
+        "aabb_volume": aabb_volume,
+        "footprint_perimeter": shape.length,
+        "obb_width": S,
+        "obb_length": L,
+        "surface_area": mesh.area,
+        "ground_area": area["GroundSurface"],
+        "wall_area": area["WallSurface"],
+        "roof_area": area["RoofSurface"],
+        "ground_point_count": point_count["GroundSurface"],
+        "wall point count": point_count["WallSurface"],
+        "roof point count": point_count["RoofSurface"],
+        "ground surface count": surface_count["GroundSurface"],
+        "wall surface count": surface_count["WallSurface"],
+         "roof surface count": surface_count["RoofSurface"],
+        "max Z": height_stats["Max"],
+        "min Z": height_stats["Min"],
+        "height range": height_stats["Range"],
+        "mean Z": height_stats["Mean"],
+        "median Z": height_stats["Median"],
+        "std Z": height_stats["Std"],
+        "mode Z": height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
+        "ground Z": ground_z,
+        "orientation_values": str(bin_count),
+        "orientation_edges": str(bin_edges),
+        "errors": str(errors),
+        "valid": len(errors) == 0,
+        "hole count": tri_mesh.n_open_edges,
+        "geometry": shape
+    }
 
-    shared_area = 0
+    if custom_indices is None or len(custom_indices) > 0:
+        voxel = pv.voxelize(tri_mesh, density=density_3d, check_surface=False)
+        grid = voxel.cell_centers().points
 
-    closest_distance = 10000
+        shared_area = 0
 
-    if len(neighbours) > 0:
-        # Get neighbour meshes
-        n_meshes = [cityjson.to_triangulated_polydata(geom, vertices).clean()
-                    for geom in neighbours]
-        
-        for mesh in n_meshes:
-            mesh.points -= t
-        
-        # Compute shared walls
-        walls = np.hstack([geometry.intersect_surfaces([fixed, neighbour])
-                        for neighbour in n_meshes])
-        
-        shared_area = sum([wall["area"][0] for wall in walls])
+        closest_distance = 10000
 
-        # Find the closest distance
-        for mesh in n_meshes:
-            mesh.compute_implicit_distance(fixed, inplace=True)
-                        
-            closest_distance = min(closest_distance, np.min(mesh["implicit_distance"]))
-        
-        closest_distance = max(closest_distance, 0)
+        if len(neighbours) > 0:
+            # Get neighbour meshes
+            n_meshes = [cityjson.to_triangulated_polydata(geom, vertices).clean()
+                        for geom in neighbours]
+            
+            for mesh in n_meshes:
+                mesh.points -= t
+            
+            # Compute shared walls
+            walls = np.hstack([geometry.intersect_surfaces([fixed, neighbour])
+                            for neighbour in n_meshes])
+            
+            shared_area = sum([wall["area"][0] for wall in walls])
 
-    return obj, [
-        building["type"],
-        geom["lod"],
-        len(points),
-        fixed.n_points,
-        len(cityjson.get_surface_boundaries(geom)),
-        fixed.volume,
-        ch_volume,
-        obb.volume,
-        aabb_volume,
-        shape.length,
-        S,
-        L,
-        mesh.area,
-        area["GroundSurface"],
-        area["WallSurface"],
-        area["RoofSurface"],
-        point_count["GroundSurface"],
-        point_count["WallSurface"],
-        point_count["RoofSurface"],
-        surface_count["GroundSurface"],
-        surface_count["WallSurface"],
-        surface_count["RoofSurface"],
-        height_stats["Max"],
-        height_stats["Min"],
-        height_stats["Range"],
-        height_stats["Mean"],
-        height_stats["Median"],
-        height_stats["Std"],
-        height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
-        ground_z,
-        str(bin_count),
-        str(bin_edges),
-        str(errors),
-        len(errors) == 0,
-        si.circularity(shape),
-        si.hemisphericality(fixed),
-        shape.area / shape.convex_hull.area,
-        fixed.volume / ch_volume,
-        si.fractality_2d(shape),
-        si.fractality_3d(fixed),
-        shape.area / shape.minimum_rotated_rectangle.area,
-        fixed.volume / obb.volume,
-        si.squareness(shape),
-        si.cubeness(fixed),
-        si.elongation(S, L),
-        si.elongation(L, height_stats["Max"]),
-        si.elongation(S, height_stats["Max"]),
-        shape.area / math.pow(fixed.volume, 2/3),
-        si.equivalent_rectangular_index(shape),
-        si.equivalent_prism_index(fixed, obb),
-        si.proximity_2d(shape, density=density_2d),
-        si.proximity_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA",
-        si.exchange_2d(shape),
-        si.exchange_3d(tri_mesh, density=density_3d),
-        si.spin_2d(shape, density=density_2d),
-        si.spin_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA",
-        si.perimeter_index(shape),
-        si.circumference_index_3d(tri_mesh),
-        si.depth_2d(shape, density=density_2d),
-        si.depth_3d(tri_mesh, density=density_3d) if len(grid) > 2 else "NA",
-        si.girth_2d(shape),
-        si.girth_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA",
-        si.dispersion_2d(shape, density=density_2d),
-        si.dispersion_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA",
-        si.range_2d(shape),
-        si.range_3d(tri_mesh),
-        si.roughness_index_2d(shape, density=density_2d),
-        si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 2 else "NA",
-        len(si.create_grid_2d(shape, density=density_2d)),
-        len(grid),
-        tri_mesh.n_open_edges,
-        shared_area,
-        closest_distance,
-        shape
-    ]
+            # Find the closest distance
+            for mesh in n_meshes:
+                mesh.compute_implicit_distance(fixed, inplace=True)
+                            
+                closest_distance = min(closest_distance, np.min(mesh["implicit_distance"]))
+            
+            closest_distance = max(closest_distance, 0)
+
+        builder = StatValuesBuilder(values, custom_indices)
+
+        builder.add_index("2d_grid_point_count", lambda: len(si.create_grid_2d(shape, density=density_2d)))
+        builder.add_index("3d_grid_point_count", lambda: len(grid))
+
+        builder.add_index("circularity_2d", lambda: si.circularity(shape))
+        builder.add_index("hemisphericality_3d", lambda: si.hemisphericality(fixed))
+        builder.add_index("convexity_2d", lambda: shape.area / shape.convex_hull.area)
+        builder.add_index("convexity_3d", lambda: fixed.volume / ch_volume)
+        builder.add_index("convexity_3d", lambda: fixed.volume / ch_volume)
+        builder.add_index("fractality_2d", lambda: si.fractality_2d(shape))
+        builder.add_index("fractality_3d", lambda: si.fractality_3d(fixed))
+        builder.add_index("rectangularity_2d", lambda: shape.area / shape.minimum_rotated_rectangle.area)
+        builder.add_index("rectangularity_3d", lambda: fixed.volume / obb.volume)
+        builder.add_index("squareness_2d", lambda: si.squareness(shape))
+        builder.add_index("cubeness_3d", lambda: si.cubeness(fixed))
+        builder.add_index("horizontal_elongation", lambda: si.elongation(S, L))
+        builder.add_index("min_vertical_elongation", lambda: si.elongation(L, height_stats["Max"]))
+        builder.add_index("max_vertical_elongation", lambda: si.elongation(S, height_stats["Max"]))
+        builder.add_index("form_factor_3D", lambda: shape.area / math.pow(fixed.volume, 2/3))
+        builder.add_index("equivalent_rectangularity_index_2d", lambda: si.equivalent_rectangular_index(shape))
+        builder.add_index("equivalent_prism_index_3d", lambda: si.equivalent_prism_index(fixed, obb))
+        builder.add_index("proximity_index_2d_", lambda: si.proximity_2d(shape, density=density_2d))
+        builder.add_index("proximity_index_3d", lambda: si.proximity_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        builder.add_index("exchange_index_2d", lambda: si.exchange_2d(shape))
+        builder.add_index("exchange_index_3d", lambda: si.exchange_3d(tri_mesh, density=density_3d))
+        builder.add_index("spin_index_2d", lambda: si.spin_2d(shape, density=density_2d))
+        builder.add_index("spin_index_3d", lambda: si.spin_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        builder.add_index("perimeter_index_2d", lambda: si.perimeter_index(shape))
+        builder.add_index("circumference_index_3d", lambda: si.circumference_index_3d(tri_mesh))
+        builder.add_index("depth_index_2d", lambda: si.depth_2d(shape, density=density_2d))
+        builder.add_index("depth_index_3d", lambda: si.depth_3d(tri_mesh, density=density_3d) if len(grid) > 2 else "NA")
+        builder.add_index("girth_index_2d", lambda: si.girth_2d(shape))
+        builder.add_index("girth_index_3d", lambda: si.girth_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        builder.add_index("dispersion_index_2d", lambda: si.dispersion_2d(shape, density=density_2d))
+        builder.add_index("dispersion_index_3d", lambda: si.dispersion_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        builder.add_index("range_index_2d", lambda: si.range_2d(shape))
+        builder.add_index("range_index_3d", lambda: si.range_3d(tri_mesh))
+        builder.add_index("roughness_index_2d", lambda: si.roughness_index_2d(shape, density=density_2d))
+        builder.add_index("roughness_index_3d", lambda: si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 2 else "NA")
+        builder.add_index("shared_walls_area", lambda: shared_area)
+        builder.add_index("closest_distance", lambda: closest_distance)
+
+    return obj, values
 
 # Assume semantic surfaces
 @click.command()
@@ -481,7 +532,7 @@ def process_building(building,
 @click.option('-f', '--filter')
 @click.option('-r', '--repair', flag_value=True)
 @click.option('-p', '--plot-buildings', flag_value=True)
-@click.option('-c', '--with-cohesion', flag_value=True)
+@click.option('--without-indices', flag_value=True)
 @click.option('-s', '--single-threaded', flag_value=True)
 @click.option('-b', '--break-on-error', flag_value=True)
 @click.option('-j', '--jobs', default=1)
@@ -494,7 +545,7 @@ def main(input,
          filter,
          repair,
          plot_buildings,
-         with_cohesion,
+         without_indices,
          single_threaded,
          break_on_error,
          jobs,
@@ -530,83 +581,6 @@ def main(input,
     total_xz = np.zeros(36)
     total_yz = np.zeros(36)
 
-    columns = [
-        "type", # type of the city object
-        "lod",
-        "point count", # total number of points in the city object
-        "unique point count",
-        "surface count", # total number of surfaces in the city object
-        "actual volume", # volume of the geometry of city object
-        "convex hull volume", # volume of the convex hull of the city object
-        "obb volume", # volume of the oriented bounding box of the city object
-        "aabb volume", # volume of the axis-aligned bounding box of the city object
-        "footprint perimeter", # perimeter of the footpring of the city object
-        "obb width",
-        "obb length",
-        "surface area", # total area of all surfaces of the city object
-        "ground area", # area of all ground surfaces of the city object
-        "wall area", # area of all wall surfaces of the city object
-        "roof area", # area of all roof surfaces of the city object
-        "ground point count", # number of points in ground surfaces
-        "wall point count", # number of point in wall surfaces
-        "roof point count", # number of point in roof surfaces
-        "ground surface count", # number of ground surfaces
-        "wall surface count", # number of wall surfaces
-        "roof surface count", # number of roof surfaces
-        "max Z", # maximum Z of roof points
-        "min Z", # minimum Z of roof points
-        "height range", # height range of roof points (ie, max - min)
-        "mean Z", # mean Z of roof points
-        "median Z", # median Z of roof points
-        "std Z", # standard deviation of Z of roof points
-        "mode Z", # mode of Z of roof points
-        "ground Z", # Z value of the ground points
-        "orientation_values", # values of orientation plot of wall surfaces normals
-        "orientation_edges", # edges of orientation plot of wall surfaces normals
-        "errors", # error codes from val3dity for the city object
-        "valid", # validity of the city object
-        "circularity (2d)",
-        "hemisphericality (3d)",
-        "convexity (2d)",
-        "convexity (3d)",
-        "fractality (2d)",
-        "fractality (3d)",
-        "rectangularity (2d)",
-        "rectangularity (3d)",
-        "squareness (2d)",
-        "cubeness (3d)",
-        "horizontal elongation",
-        "min vertical elongation",
-        "max vertical elongation",
-        "form factor (3D)",
-        "equivalent rectangularity index (2d)",
-        "equivalent prism index (3d)",
-        "proximity index (2d)",
-        "proximity index (3d)",
-        "exchange index (2d)",
-        "exchange index (3d)",
-        "spin index (2d)",
-        "spin index (3d)",
-        "perimeter index (2d)",
-        "circumference index (3d)",
-        "depth index (2d)",
-        "depth index (3d)",
-        "girth index (2d)",
-        "girth index (3d)",
-        "dispersion index (2d)",
-        "dispersion index (3d)",
-        "range index (2d)",
-        "range index (3d)",
-        "roughness index (2d)",
-        "roughness index (3d)",
-        "2d grid point count",
-        "3d grid point count",
-        "hole count",
-        "shared walls area",
-        "closest distance",
-        "geometry"
-    ]
-
     # Build the index of the city model
     p = rtree.index.Property()
     p.dimension = 3
@@ -616,28 +590,9 @@ def main(input,
         for obj in tqdm(cm["CityObjects"]):
             errors = get_errors_from_report(report, obj, cm)
             
-            building = cm["CityObjects"][obj]
+            neighbours = get_neighbours(cm, obj, r, verts)
 
-            # Get neighbours
-            if len(building["geometry"]) > 0:
-                geom = building["geometry"][0]
-                xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
-                objids = [n.object
-                        for n in r.intersection((xmin,
-                                                ymin,
-                                                zmin,
-                                                xmax,
-                                                ymax,
-                                                zmax),
-                                                objects=True)
-                        if n.object != obj]
-
-                if len(objids) == 0:
-                    objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
-
-                neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
-            else:
-                neighbours = []
+            indices_list = [] if without_indices else None
             
             try:
                 obj, vals = process_building(cm["CityObjects"][obj],
@@ -646,12 +601,11 @@ def main(input,
                                 filter,
                                 repair,
                                 plot_buildings,
-                                with_cohesion,
                                 density_2d,
                                 density_3d,
                                 vertices,
-                                columns,
-                                neighbours)
+                                neighbours,
+                                indices_list)
                 if not vals is None:
                     stats[obj] = vals
             except Exception as e:
@@ -672,28 +626,9 @@ def main(input,
                 for obj in cm["CityObjects"]:
                     errors = get_errors_from_report(report, obj, cm)
 
-                    building = cm["CityObjects"][obj]
+                    neighbours = get_neighbours(cm, obj, r, verts)
 
-                    # Get neighbours
-                    if len(building["geometry"]) > 0:
-                        geom = building["geometry"][0]
-                        xmin, xmax, ymin, ymax, zmin, zmax = cityjson.get_bbox(geom, verts)
-                        objids = [n.object
-                                for n in r.intersection((xmin,
-                                                        ymin,
-                                                        zmin,
-                                                        xmax,
-                                                        ymax,
-                                                        zmax),
-                                                        objects=True)
-                                if n.object != obj]
-
-                        if len(objids) == 0:
-                            objids = [n.object for n in r.nearest((xmin, ymin, zmin, xmax, ymax, zmax), 5, objects=True) if n.object != obj]
-
-                        neighbours = [cm["CityObjects"][objid]["geometry"][0] for objid in objids]
-                    else:
-                        neighbours = []
+                    indices_list = [] if without_indices else None
 
                     future = pool.submit(process_building,
                                         cm["CityObjects"][obj],
@@ -702,12 +637,11 @@ def main(input,
                                         filter,
                                         repair,
                                         plot_buildings,
-                                        with_cohesion,
                                         density_2d,
                                         density_3d,
                                         vertices,
-                                        columns,
-                                        neighbours)
+                                        neighbours,
+                                        indices_list)
                     future.add_done_callback(lambda p: progress.update())
                     futures.append(future)
                 
@@ -728,7 +662,7 @@ def main(input,
 
     click.echo("Building data frame...")
 
-    df = pd.DataFrame.from_dict(stats, orient="index", columns=columns)
+    df = pd.DataFrame.from_dict(stats, orient="index")
     df.index.name = "id"
 
     if output is None:
