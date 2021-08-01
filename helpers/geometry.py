@@ -67,7 +67,7 @@ def triangulate(mesh):
     
     return final_mesh
 
-def triangulate_polygon(face, vertices):
+def triangulate_polygon(face, vertices, offset = 0):
     """Returns the points and triangles for a given CityJSON polygon"""
 
     points = vertices[np.hstack(face)]
@@ -80,6 +80,8 @@ def triangulate_polygon(face, vertices):
     points_2d = project_2d(points, normal)
 
     result = earcut.triangulate_float32(points_2d, holes)
+
+    result += offset
 
     t_count = len(result.reshape(-1,3))
     if t_count == 0:

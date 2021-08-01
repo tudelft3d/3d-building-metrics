@@ -72,8 +72,6 @@ def to_triangulated_polydata(geom, vertices):
     """Returns the polydata mesh from a CityJSON geometry"""
 
     boundaries = get_surface_boundaries(geom)
-
-    final_mesh = pv.PolyData()
     
     if "semantics" in geom:        
         semantics = geom["semantics"]
@@ -84,25 +82,30 @@ def to_triangulated_polydata(geom, vertices):
         
         semantic_types = [semantics["surfaces"][i]["type"] for i in values]
 
+    points = []
+    triangles = []
+    semantics = []
+    triangle_count = 0
     for fid, face in enumerate(boundaries):
         try:
-            points, triangles = triangulate_polygon(face, vertices)
+            new_points, new_triangles = triangulate_polygon(face, vertices, len(points))
         except:
             continue
 
-        t_count = int(len(triangles) / 4)
-        if t_count == 0:
-            continue
+        points.extend(new_points)
+        triangles.extend(new_triangles)
+        t_count = int(len(new_triangles) / 4)
 
-        new_mesh = pv.PolyData(points, triangles, n_faces=t_count)
-        if "semantics" in geom:
-            new_mesh["semantics"] = [semantic_types[fid] for _ in np.arange(t_count)]
+        triangle_count += t_count
 
-        final_mesh = final_mesh + new_mesh
+        semantics.extend([semantic_types[fid] for _ in np.arange(t_count)])
     
-    final_mesh.clean()
+    mesh = pv.PolyData(points, triangles, n_faces=triangle_count)
+    mesh["semantics"] = semantics
+    
+    mesh.clean()
 
-    return final_mesh
+    return mesh
 
 def get_bbox(geom, verts):
     pts = np.array(get_points(geom, verts))
