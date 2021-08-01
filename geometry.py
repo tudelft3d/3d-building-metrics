@@ -190,13 +190,16 @@ def intersect_surfaces(meshes):
             inter = inter.intersection(polys[i])
         
         if inter.area > 0.001:
-            if inter.type == "MultiPolygon":
+            if inter.type == "MultiPolygon" or inter.type == "GeometryCollection":
                 for geom in inter.geoms:
+                    if geom.type != "Polygon":
+                        continue
+                    
                     pts = to_3d(geom.boundary.coords, normal, origin)
                     common_mesh = pv.PolyData(pts, faces=[len(pts)] + list(range(len(pts))))
                     common_mesh["area"] = [geom.area]
                     areas.append(common_mesh)
-            else:
+            elif inter.type == "Polygon":
                 pts = to_3d(inter.boundary.coords, normal, origin)
                 common_mesh = pv.PolyData(pts, faces=[len(pts)] + list(range(len(pts))))
                 common_mesh["area"] = [inter.area]
