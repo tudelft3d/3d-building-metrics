@@ -41,7 +41,7 @@ def main(input, save):
         for geom in co["geometry"]:
             if str(geom["lod"]) == lod:
                 mesh = to_triangulated_polydata(geom, vertices)
-                # meshes.append(mesh)
+                meshes.append(mesh)
 
                 p.add_mesh(mesh)
 
