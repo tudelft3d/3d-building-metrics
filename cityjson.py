@@ -98,10 +98,13 @@ def to_triangulated_polydata(geom, vertices):
 
         triangle_count += t_count
 
-        semantics.extend([semantic_types[fid] for _ in np.arange(t_count)])
+        if "semantics" in geom:
+            semantics.extend([semantic_types[fid] for _ in np.arange(t_count)])
     
     mesh = pv.PolyData(points, triangles, n_faces=triangle_count)
-    mesh["semantics"] = semantics
+
+    if "semantics" in geom:
+        mesh["semantics"] = semantics
     
     mesh.clean()
 
