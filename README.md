@@ -48,3 +48,11 @@ Running multiple files in a folder and checking with [val3dity](https://github.c
 ```
 for i in *.json; do val3dity $i --report "${i%.json}_v3.json"; python cityStats.py $i -o "${i%.json}.csv" -v "${i%.json}_v3.json"; done
 ```
+
+## Can I visualise a model?
+
+Tuurlijk! Just:
+
+```
+python cityPlot.py [file_path]
+```

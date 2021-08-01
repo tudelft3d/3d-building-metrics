@@ -8,7 +8,7 @@ import pyvista as pv
 def get_surface_boundaries(geom):
     """Returns the boundaries for all surfaces"""
 
-    if geom["type"] == "MultiSurface":
+    if geom["type"] == "MultiSurface" or geom["type"] == "CompositeSurface":
         return geom["boundaries"]
     elif geom["type"] == "Solid":
         return geom["boundaries"][0]
