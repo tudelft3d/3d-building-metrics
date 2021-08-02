@@ -68,7 +68,7 @@ def to_polydata(geom, vertices):
     
     return mesh
 
-def to_triangulated_polydata(geom, vertices):
+def to_triangulated_polydata(geom, vertices, clean=True):
     """Returns the polydata mesh from a CityJSON geometry"""
 
     boundaries = get_surface_boundaries(geom)
@@ -106,7 +106,8 @@ def to_triangulated_polydata(geom, vertices):
     if "semantics" in geom:
         mesh["semantics"] = semantics
     
-    mesh.clean()
+    if clean:
+        mesh = mesh.clean()
 
     return mesh
 
