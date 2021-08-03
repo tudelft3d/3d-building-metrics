@@ -16,10 +16,10 @@ def main(input, lod, output):
     else:
         verts = cm["vertices"]
 
-    lods = set([geom["lod"] for obj in cm["CityObjects"]
+    lods = set([str(geom["lod"]) for obj in cm["CityObjects"]
                             for geom in cm["CityObjects"][obj]["geometry"]])
 
-    if not lod in lods:
+    if not str(lod) in lods:
         print("LoD not found in the dataset!")
         exit()
 
