@@ -42,8 +42,8 @@ def get_geometry(co, lod):
 @click.command()
 @click.argument("source", type=click.File("rb"))
 @click.argument("destination", type=click.File("rb"))
-@click.option("--lod_source", type=str)
-@click.option("--lod_destination", type=str)
+@click.option("--lod-source", type=str)
+@click.option("--lod-destination", type=str)
 @click.option("--engine", default="igl")
 @click.option("--limit", type=int)
 @click.option("--plot", flag_value=True)
@@ -127,7 +127,10 @@ def main(source, destination, lod_source, lod_destination, engine, limit, plot, 
     
     df = pd.DataFrame.from_dict(result, orient="index")
 
-    print(df)
+    if output is None:
+        print(df)
+    else:
+        df.to_csv(output)
 
 if __name__ == "__main__":
     main()
