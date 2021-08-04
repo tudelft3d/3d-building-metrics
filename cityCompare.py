@@ -44,10 +44,13 @@ def get_geometry(co, lod):
 @click.option("--lod_source")
 @click.option("--lod_destination")
 @click.option("--engine", default="igl")
+@click.option("--limit", type=int)
 @click.option("--plot", flag_value=True)
-def main(source, destination, lod_source, lod_destination, engine, plot):
+def main(source, destination, lod_source, lod_destination, engine, limit, plot):
     cm_source, verts_source = load_citymodel(source)
     cm_dest, verts_dest = load_citymodel(destination)
+
+    i = 0
 
     for co_id in tqdm(cm_source["CityObjects"]):
         if not co_id in cm_dest["CityObjects"]:
@@ -82,12 +85,20 @@ def main(source, destination, lod_source, lod_destination, engine, plot):
 
             p = pv.Plotter()
 
-            p.add_mesh(mesh_source, opacity=0.2)
-            p.add_mesh(mesh_dest, opacity=0.2)
+            p.add_mesh(mesh_source, color="green", opacity=0.1)
+            p.add_mesh(mesh_dest, color="red", opacity=0.1)
+            
+            p.add_mesh(mesh_source.extract_feature_edges(), color="green")
+            p.add_mesh(mesh_dest.extract_feature_edges(), color="red")
 
             p.add_mesh(result)
 
             p.show()
+        
+        i += 1
+
+        if not limit is None and i >= limit:
+            break
 
 if __name__ == "__main__":
     main()
