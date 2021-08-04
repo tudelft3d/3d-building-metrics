@@ -19,6 +19,11 @@ def to_pyvista(mesh):
     return pv.PolyData(v, f, len(mesh.faces))
 
 def intersect(mesh1, mesh2, engine="igl"):
-    """Returns the intersection between two meshes (in pymesh format)"""
+    """Returns the intersection of two meshes (in pymesh format)"""
 
     return pymesh.boolean(mesh1, mesh2, operation="intersection", engine=engine)
+
+def symmetric_difference(mesh1, mesh2, engine="igl"):
+    """Returns the symmetric difference of two volumes (in pymesh format)"""
+
+    return pymesh.boolean(mesh1, mesh2, operation="symmetric_difference", engine=engine)
