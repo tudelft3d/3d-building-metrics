@@ -5,7 +5,6 @@ from cityjson import to_triangulated_polydata
 import pyvista as pv
 from tqdm import tqdm
 
-# Assume semantic surfaces
 @click.command()
 @click.argument("input", type=click.File("rb"))
 @click.option("--save", flag_value=True)

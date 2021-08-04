@@ -3,27 +3,11 @@
 import math
 from shapely.geometry import Point, MultiPoint, Polygon
 from helpers.geometry import surface_normal
+from helpers.mesh import to_pymesh, to_pyvista, intersect
 import miniball
 import numpy as np
 import pyvista as pv
-
 import pymesh
-
-def to_pymesh(mesh):
-    """Returns a pymesh from a pyvista PolyData"""
-    v = mesh.points
-    f = mesh.faces.reshape(-1, 4)[:, 1:]
-
-    return pymesh.form_mesh(v, f)
-
-def to_pyvista(mesh):
-    """Return a PolyData from a pymesh"""
-    v = mesh.vertices
-    f = mesh.faces
-    
-    f = np.hstack([[len(f)] + list(f) for f in mesh.faces])
-    
-    return pv.PolyData(v, f, len(mesh.faces))
 
 def circularity(shape):
     """Returns circularity 2D for a given polygon"""
@@ -318,7 +302,7 @@ def exchange_3d(mesh, evs=None, density=0.25, engine="igl"):
     pm_evs = to_pymesh(evs)
 
     try:
-        inter = pymesh.boolean(pm_mesh, pm_evs, operation="intersection", engine=engine)
+        inter = intersect(pm_mesh, pm_evs, engine)
     except:
         return -1
 
