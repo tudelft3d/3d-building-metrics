@@ -27,3 +27,8 @@ def symmetric_difference(mesh1, mesh2, engine="igl"):
     """Returns the symmetric difference of two volumes (in pymesh format)"""
 
     return pymesh.boolean(mesh1, mesh2, operation="symmetric_difference", engine=engine)
+
+def difference(mesh1, mesh2, engine="igl"):
+    """Returns the difference between two volumes (in pymesh format)"""
+
+    return pymesh.boolean(mesh1, mesh2, operation="difference", engine=engine)

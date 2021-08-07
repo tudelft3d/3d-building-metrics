@@ -3,9 +3,12 @@ import json
 import numpy as np
 from tqdm import tqdm
 import cityjson
-from helpers.mesh import symmetric_difference, to_pymesh, to_pyvista, intersect
+from helpers.mesh import difference, symmetric_difference, to_pymesh, to_pyvista, intersect
 import pyvista as pv
 import pandas as pd
+import pymesh
+from pymeshfix import MeshFix
+import os
 
 def load_citymodel(file):
     cm = json.load(file)
@@ -39,6 +42,17 @@ def get_geometry(co, lod):
         if str(geom["lod"]) == str(lod):
             return geom
 
+def repair_mesh(mesh):
+    mfix = MeshFix(mesh)
+    mfix.repair(verbose=False)
+
+    fixed = mfix.mesh
+    
+    return fixed
+
+def is_valid(mesh):
+    return mesh.volume > 0 and mesh.n_open_edges == 0
+
 @click.command()
 @click.argument("source", type=click.File("rb"))
 @click.argument("destination", type=click.File("rb"))
@@ -48,13 +62,28 @@ def get_geometry(co, lod):
 @click.option("--limit", type=int)
 @click.option("--plot", flag_value=True)
 @click.option("-o", "--output")
-def main(source, destination, lod_source, lod_destination, engine, limit, plot, output):
+@click.option("-r", "--repair", flag_value=True)
+@click.option("-e", "--export-geometry", flag_value=True)
+def main(source,
+         destination,
+         lod_source,
+         lod_destination,
+         engine,
+         limit,
+         plot,
+         output,
+         repair,
+         export_geometry):
     cm_source, verts_source = load_citymodel(source)
     cm_dest, verts_dest = load_citymodel(destination)
 
     i = 0
 
     result = {}
+
+    output_path = "output_geom"
+    if not os.path.isdir(output_path):
+        os.mkdir(output_path)
 
     for co_id in tqdm(cm_source["CityObjects"]):
         if not co_id in cm_dest["CityObjects"]:
@@ -72,15 +101,22 @@ def main(source, destination, lod_source, lod_destination, engine, limit, plot, 
         mesh_source = cityjson.to_triangulated_polydata(geom_source, verts_source)
         mesh_dest = cityjson.to_triangulated_polydata(geom_dest, verts_dest)
 
-        if mesh_source.n_open_edges > 0 or mesh_dest.n_open_edges > 0:
-            click.echo(f"{co_id}: Source or destintation object is not a closed volume...", color="yellow")
-            result[co_id] = {
-                "source_volume": "NA",
-                "destination_volume": "NA",
-                "intersection_volume": "NA",
-                "symmetric_difference_volume": "NA"
-            }
-            continue
+        if not is_valid(mesh_source) or not is_valid(mesh_dest):
+            if repair and not is_valid(mesh_source):
+                mesh_source = repair_mesh(mesh_source)
+            
+            if repair and not is_valid(mesh_dest):
+                mesh_dest = repair_mesh(mesh_dest)
+
+            if not is_valid(mesh_source) or not is_valid(mesh_dest):
+                click.echo(f"{co_id}: Source or destintation object is not a closed volume...")
+                result[co_id] = {
+                    "source_volume": "NA",
+                    "destination_volume": "NA",
+                    "intersection_volume": "NA",
+                    "symmetric_difference_volume": "NA"
+                }
+                continue
 
         pm_source = to_pymesh(mesh_source)
         pm_dest = to_pymesh(mesh_dest)
@@ -88,6 +124,7 @@ def main(source, destination, lod_source, lod_destination, engine, limit, plot, 
         try:
             inter = intersect(pm_source, pm_dest, engine)
             sym_dif = symmetric_difference(pm_source, pm_dest, engine)
+            dif = difference(pm_dest, pm_source, engine)
         except Exception as e:
             print(f"Problem intersecting {co_id}: {str(e)}")
             continue
@@ -98,10 +135,12 @@ def main(source, destination, lod_source, lod_destination, engine, limit, plot, 
             "intersection_volume": inter.volume,
             "symmetric_difference_volume": sym_dif.volume
         }
+
+        if export_geometry:
+            pymesh.save_mesh(os.path.join(output_path, f"{co_id}.obj"), dif)
         
         if plot:
             inter_vista = to_pyvista(inter)
-            # sym_dif_vista = to_pyvista(sym_dif)
 
             p = pv.Plotter()
 
