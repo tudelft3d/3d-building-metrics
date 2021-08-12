@@ -61,6 +61,7 @@ def is_valid(mesh):
 @click.option("--engine", default="igl")
 @click.option("--limit", type=int)
 @click.option("--plot", flag_value=True)
+@click.option("-f", "--filter")
 @click.option("-o", "--output")
 @click.option("-r", "--repair", flag_value=True)
 @click.option("-e", "--export-geometry", flag_value=True)
@@ -71,6 +72,7 @@ def main(source,
          engine,
          limit,
          plot,
+         filter,
          output,
          repair,
          export_geometry):
@@ -88,6 +90,9 @@ def main(source,
     for co_id in tqdm(cm_source["CityObjects"]):
         if not co_id in cm_dest["CityObjects"]:
             print(f"WARNING: {co_id} missing from destination file.")
+        
+        if not filter is None and filter != co_id:
+            continue
         
         obj_source = cm_source["CityObjects"][co_id]
         obj_dest = cm_dest["CityObjects"][co_id]
