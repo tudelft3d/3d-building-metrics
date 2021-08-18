@@ -5,6 +5,7 @@ cython
 pymeshfix
 click
 pandas
+geopandas
 tqdm
 shapely
 jupyter
