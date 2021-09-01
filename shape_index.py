@@ -458,8 +458,14 @@ def range_3d(mesh):
     t = np.mean(pts, axis=0)
     pts = pts - t
 
+    count = 0
+
     while r2 < 0:
         r2 = get_bounding_ball_radius(pts)
+        count += 1
+
+        if count > 10:
+            return -1
     
     r_scc = math.sqrt(r2)
     
