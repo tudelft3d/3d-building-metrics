@@ -119,7 +119,8 @@ def main(source,
                     "source_volume": "NA",
                     "destination_volume": "NA",
                     "intersection_volume": "NA",
-                    "symmetric_difference_volume": "NA"
+                    "symmetric_difference_volume": "NA",
+                    "destination_minus_source": "NA"
                 }
                 continue
 
@@ -129,7 +130,7 @@ def main(source,
         try:
             inter = intersect(pm_source, pm_dest, engine)
             sym_dif = symmetric_difference(pm_source, pm_dest, engine)
-            dif = difference(pm_dest, pm_source, engine)
+            dest_minus_source = difference(pm_dest, pm_source, engine)
         except Exception as e:
             print(f"Problem intersecting {co_id}: {str(e)}")
             continue
@@ -138,11 +139,12 @@ def main(source,
             "source_volume": mesh_source.volume,
             "destination_volume": mesh_dest.volume,
             "intersection_volume": inter.volume,
-            "symmetric_difference_volume": sym_dif.volume
+            "symmetric_difference_volume": sym_dif.volume,
+            "destination_minus_source": dest_minus_source.volume
         }
 
         if export_geometry:
-            pymesh.save_mesh(os.path.join(output_path, f"{co_id}.obj"), dif)
+            pymesh.save_mesh(os.path.join(output_path, f"{co_id}.obj"), dest_minus_source)
         
         if plot:
             inter_vista = to_pyvista(inter)
