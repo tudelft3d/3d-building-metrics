@@ -53,6 +53,77 @@ def repair_mesh(mesh):
 def is_valid(mesh):
     return mesh.volume > 0 and mesh.n_open_edges == 0
 
+def compare(co_id,
+            obj_source,
+            obj_dest,
+            lod_source,
+            lod_destination,
+            verts_source,
+            verts_dest,
+            repair=False,
+            export_path=None,
+            plot=False,
+            engine="igl"):    
+    geom_source = get_geometry(obj_source, lod_source)
+    geom_dest = get_geometry(obj_dest, lod_destination)
+
+    if geom_source is None or geom_dest is None:
+        raise ValueError("Geometry is missing for source or destination.")
+    
+    mesh_source = cityjson.to_triangulated_polydata(geom_source, verts_source)
+    mesh_dest = cityjson.to_triangulated_polydata(geom_dest, verts_dest)
+
+    if not is_valid(mesh_source) or not is_valid(mesh_dest):
+        if repair and not is_valid(mesh_source):
+            mesh_source = repair_mesh(mesh_source)
+        
+        if repair and not is_valid(mesh_dest):
+            mesh_dest = repair_mesh(mesh_dest)
+
+        if not is_valid(mesh_source) or not is_valid(mesh_dest):
+            raise ValueError("The source or desintation object is not a closed volume.")
+
+    pm_source = to_pymesh(mesh_source)
+    pm_dest = to_pymesh(mesh_dest)
+
+    try:
+        inter = intersect(pm_source, pm_dest, engine)
+        sym_dif = symmetric_difference(pm_source, pm_dest, engine)
+        dest_minus_source = difference(pm_dest, pm_source, engine)
+    except Exception as e:
+        raise ValueError(f"Problem intersecting: {str(e)}")
+
+    if not export_path is None:
+        pymesh.save_mesh(export_path, dest_minus_source)
+    
+    if plot:
+        inter_vista = to_pyvista(inter)
+
+        p = pv.Plotter()
+
+        p.background_color = "white"
+
+        p.add_mesh(mesh_source, color="blue", opacity=0.1)
+        p.add_mesh(mesh_dest, color="orange", opacity=0.1)
+
+        p.add_mesh(mesh_source.extract_feature_edges(), color="blue", line_width=3, label=lod_source)
+        p.add_mesh(mesh_dest.extract_feature_edges(), color="orange", line_width=3, label=lod_destination)
+
+        p.add_mesh(inter_vista, color="lightgrey", label="Intersection")
+        # p.add_mesh(sym_dif_vista, color="black", opacity=0.8, label="Symmetric Difference")
+
+        p.add_legend()
+
+        p.show()
+    
+    return co_id, {
+        "source_volume": mesh_source.volume,
+        "destination_volume": mesh_dest.volume,
+        "intersection_volume": inter.volume,
+        "symmetric_difference_volume": sym_dif.volume,
+        "destination_minus_source": dest_minus_source.volume
+    }
+
 @click.command()
 @click.argument("source", type=click.File("rb"))
 @click.argument("destination", type=click.File("rb"))
@@ -65,6 +136,8 @@ def is_valid(mesh):
 @click.option("-o", "--output")
 @click.option("-r", "--repair", flag_value=True)
 @click.option("-e", "--export-geometry", flag_value=True)
+@click.option("-j", "--jobs")
+@click.option("--break_on_error", flag_value=True)
 def main(source,
          destination,
          lod_source,
@@ -75,7 +148,9 @@ def main(source,
          filter,
          output,
          repair,
-         export_geometry):
+         export_geometry,
+         jobs,
+         break_on_error):
     cm_source, verts_source = load_citymodel(source)
     cm_dest, verts_dest = load_citymodel(destination)
 
@@ -84,92 +159,54 @@ def main(source,
     result = {}
 
     output_path = "output_geom"
-    if not os.path.isdir(output_path):
+    if export_geometry and not os.path.isdir(output_path):
         os.mkdir(output_path)
+    
+    from concurrent.futures import ProcessPoolExecutor
 
-    for co_id in tqdm(cm_source["CityObjects"]):
-        if not co_id in cm_dest["CityObjects"]:
-            print(f"WARNING: {co_id} missing from destination file.")
-        
-        if not filter is None and filter != co_id:
-            continue
-        
-        obj_source = cm_source["CityObjects"][co_id]
-        obj_dest = cm_dest["CityObjects"][co_id]
-        
-        geom_source = get_geometry(obj_source, lod_source)
-        geom_dest = get_geometry(obj_dest, lod_destination)
+    num_objs = len(cm_source["CityObjects"])
+    num_cores = jobs
 
-        if geom_source is None or geom_dest is None:
-            continue
-        
-        mesh_source = cityjson.to_triangulated_polydata(geom_source, verts_source)
-        mesh_dest = cityjson.to_triangulated_polydata(geom_dest, verts_dest)
+    with ProcessPoolExecutor(max_workers=num_cores) as pool:
+        with tqdm(total=num_objs if limit is None else limit) as progress:
+            futures = []
 
-        if not is_valid(mesh_source) or not is_valid(mesh_dest):
-            if repair and not is_valid(mesh_source):
-                mesh_source = repair_mesh(mesh_source)
+            for co_id in cm_source["CityObjects"]:
+                if not co_id in cm_dest["CityObjects"]:
+                    print(f"WARNING: {co_id} missing from destination file.")
+                    progress.total -= 1
+                
+                if not filter is None and filter != co_id:
+                    progress.total -= 1
+
+                future = pool.submit(compare,
+                                     co_id,
+                                     cm_source["CityObjects"][co_id],
+                                     cm_dest["CityObjects"][co_id],
+                                     lod_source,
+                                     lod_destination,
+                                     verts_source,
+                                     verts_dest,
+                                     repair,
+                                     os.path.join(output_path, f"{co_id}.obj"),
+                                     plot,
+                                     engine)
+                future.add_done_callback(lambda p: progress.update())
+                futures.append(future)
+
+                i += 1
+                if not limit is None and i >= limit:
+                    break
             
-            if repair and not is_valid(mesh_dest):
-                mesh_dest = repair_mesh(mesh_dest)
-
-            if not is_valid(mesh_source) or not is_valid(mesh_dest):
-                click.echo(f"{co_id}: Source or destintation object is not a closed volume...")
-                result[co_id] = {
-                    "source_volume": "NA",
-                    "destination_volume": "NA",
-                    "intersection_volume": "NA",
-                    "symmetric_difference_volume": "NA",
-                    "destination_minus_source": "NA"
-                }
-                continue
-
-        pm_source = to_pymesh(mesh_source)
-        pm_dest = to_pymesh(mesh_dest)
-
-        try:
-            inter = intersect(pm_source, pm_dest, engine)
-            sym_dif = symmetric_difference(pm_source, pm_dest, engine)
-            dest_minus_source = difference(pm_dest, pm_source, engine)
-        except Exception as e:
-            print(f"Problem intersecting {co_id}: {str(e)}")
-            continue
-        
-        result[co_id] = {
-            "source_volume": mesh_source.volume,
-            "destination_volume": mesh_dest.volume,
-            "intersection_volume": inter.volume,
-            "symmetric_difference_volume": sym_dif.volume,
-            "destination_minus_source": dest_minus_source.volume
-        }
-
-        if export_geometry:
-            pymesh.save_mesh(os.path.join(output_path, f"{co_id}.obj"), dest_minus_source)
-        
-        if plot:
-            inter_vista = to_pyvista(inter)
-
-            p = pv.Plotter()
-
-            p.background_color = "white"
-
-            p.add_mesh(mesh_source, color="blue", opacity=0.1)
-            p.add_mesh(mesh_dest, color="orange", opacity=0.1)
-
-            p.add_mesh(mesh_source.extract_feature_edges(), color="blue", line_width=3, label=lod_source)
-            p.add_mesh(mesh_dest.extract_feature_edges(), color="orange", line_width=3, label=lod_destination)
-
-            p.add_mesh(inter_vista, color="lightgrey", label="Intersection")
-            # p.add_mesh(sym_dif_vista, color="black", opacity=0.8, label="Symmetric Difference")
-
-            p.add_legend()
-
-            p.show()
-        
-        i += 1
-
-        if not limit is None and i >= limit:
-            break
+            for future in futures:
+                try:
+                    co_id, vals = future.result()
+                    if not vals is None:
+                        result[co_id] = vals
+                except Exception as e:
+                    print(f"Problem with {co_id}: {e}")
+                    if break_on_error:
+                        raise e
     
     df = pd.DataFrame.from_dict(result, orient="index")
 
