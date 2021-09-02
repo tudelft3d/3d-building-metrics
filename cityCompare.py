@@ -136,7 +136,7 @@ def compare(co_id,
 @click.option("-o", "--output")
 @click.option("-r", "--repair", flag_value=True)
 @click.option("-e", "--export-geometry", flag_value=True)
-@click.option("-j", "--jobs")
+@click.option("-j", "--jobs", default=1)
 @click.option("--break_on_error", flag_value=True)
 def main(source,
          destination,
