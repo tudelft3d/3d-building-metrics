@@ -225,6 +225,9 @@ def get_errors_from_report(report, objid, cm):
     obj = cm["CityObjects"][objid]
     primidx = 0
 
+    if not "geometry" in obj or len(obj["geometry"]) == 0:
+        return []
+
     if "parents" in obj:
         parid = obj["parents"][0]
 
