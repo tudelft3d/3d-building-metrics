@@ -137,6 +137,25 @@ def cluster_faces(data, threshold=0.1):
 
 def intersect_surfaces(meshes):
     """Return the intersection between the surfaces of multiple meshes"""
+
+    def get_area_from_ring(areas, area, geom, normal, origin, subtract=False):
+        pts = to_3d(geom.coords, normal, origin)
+        common_mesh = pv.PolyData(pts, faces=[len(pts)] + list(range(len(pts))))
+        if subtract:
+            common_mesh["area"] = [-area]
+        else:
+            common_mesh["area"] = [area]
+        areas.append(common_mesh)
+
+    def get_area_from_polygon(areas, geom, normal, origin):
+        # polygon with holes:
+        if geom.boundary.type == 'MultiLineString':
+            get_area_from_ring(areas, geom.area, geom.boundary[0], normal, origin)
+            for sgeom in geom.boundary[1:]:
+                get_area_from_ring(areas, 0, sgeom, normal, origin, subtract=True)
+        # polygon without holes:
+        elif geom.boundary.type == 'LineString':
+            get_area_from_ring(areas, geom.area, geom.boundary, normal, origin)
     
     n_meshes = len(meshes)
     
@@ -170,15 +189,8 @@ def intersect_surfaces(meshes):
                 for geom in inter.geoms:
                     if geom.type != "Polygon":
                         continue
-                    
-                    pts = to_3d(geom.boundary.coords, normal, origin)
-                    common_mesh = pv.PolyData(pts, faces=[len(pts)] + list(range(len(pts))))
-                    common_mesh["area"] = [geom.area]
-                    areas.append(common_mesh)
+                    get_area_from_polygon(areas, geom, normal, origin)
             elif inter.type == "Polygon":
-                pts = to_3d(inter.boundary.coords, normal, origin)
-                common_mesh = pv.PolyData(pts, faces=[len(pts)] + list(range(len(pts))))
-                common_mesh["area"] = [inter.area]
-                areas.append(common_mesh)
+                get_area_from_polygon(areas, inter, normal, origin)
     
     return areas
