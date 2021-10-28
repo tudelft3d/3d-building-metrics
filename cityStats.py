@@ -346,9 +346,9 @@ def process_building(building,
 
     # get_surface_plot(dataset, title=obj)
 
-    bin_count, bin_edges = get_wall_bearings(mesh, 36)
+    # bin_count, bin_edges = get_wall_bearings(mesh, 36)
 
-    xzc, yzc, be = get_roof_bearings(mesh, 36)
+    # xzc, yzc, be = get_roof_bearings(mesh, 36)
     # plot_orientations(xzc, be, title=f"XZ orientation [{obj}]")
     # plot_orientations(yzc, be, title=f"YZ orientation [{obj}]")
 
@@ -372,13 +372,13 @@ def process_building(building,
     # plotter.enable_eye_dome_lighting() # helps depth perception
     # _ = plotter.show()
 
-    points = cityjson.get_points(geom, vertices)
+    # points = cityjson.get_points(geom, vertices)
 
-    aabb_volume = boundingbox_volume(points)
+    # aabb_volume = boundingbox_volume(points)
 
-    ch_volume = convexhull_volume(points)
+    # ch_volume = convexhull_volume(points)
 
-    area, point_count, surface_count = geometry.area_by_surface(mesh)
+    # area, point_count, surface_count = geometry.area_by_surface(mesh)
 
     if "semantics" in geom:
         roof_points = geometry.get_points_of_type(mesh, "RoofSurface")
@@ -402,62 +402,62 @@ def process_building(building,
     else:
         shape = cityjson.to_shapely(geom, vertices, ground_only=False)
 
-    obb_2d = cityjson.to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
+    # obb_2d = cityjson.to_shapely(geom, vertices, ground_only=False).minimum_rotated_rectangle
 
     # Compute OBB with shapely
-    min_z = np.min(mesh.clean().points[:, 2])
-    max_z = np.max(mesh.clean().points[:, 2])
-    obb = geometry.extrude(obb_2d, min_z, max_z)
+    # min_z = np.min(mesh.clean().points[:, 2])
+    # max_z = np.max(mesh.clean().points[:, 2])
+    # obb = geometry.extrude(obb_2d, min_z, max_z)
 
     # Get the dimensions of the 2D oriented bounding box
-    S, L = si.get_box_dimensions(obb_2d)
+    # S, L = si.get_box_dimensions(obb_2d)
 
     values = {
         "type": building["type"],
         "lod": geom["lod"],
-        "point_count": len(points),
-        "unique_point_count": fixed.n_points,
-        "surface_count": len(cityjson.get_surface_boundaries(geom)),
-        "actual_volume": fixed.volume,
-        "convex_hull_volume": ch_volume,
-        "obb_volume": obb.volume,
-        "aabb_volume": aabb_volume,
-        "footprint_perimeter": shape.length,
-        "obb_width": S,
-        "obb_length": L,
-        "surface_area": mesh.area,
-        "ground_area": area["GroundSurface"],
-        "wall_area": area["WallSurface"],
-        "roof_area": area["RoofSurface"],
-        "ground_point_count": point_count["GroundSurface"],
-        "wall_point_count": point_count["WallSurface"],
-        "roof_point_count": point_count["RoofSurface"],
-        "ground_surface-count": surface_count["GroundSurface"],
-        "wall_surface_count": surface_count["WallSurface"],
-        "roof_surface_count": surface_count["RoofSurface"],
-        "max_Z": height_stats["Max"],
-        "min_Z": height_stats["Min"],
-        "height_range": height_stats["Range"],
-        "mean_Z": height_stats["Mean"],
-        "median_Z": height_stats["Median"],
-        "std_Z": height_stats["Std"],
-        "mode_Z": height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
-        "ground_Z": ground_z,
-        "orientation_values": str(bin_count),
-        "orientation_edges": str(bin_edges),
-        "errors": str(errors),
-        "valid": len(errors) == 0,
-        "hole_count": tri_mesh.n_open_edges,
+        # "point_count": len(points),
+        # "unique_point_count": fixed.n_points,
+        # "surface_count": len(cityjson.get_surface_boundaries(geom)),
+        # "actual_volume": fixed.volume,
+        # "convex_hull_volume": ch_volume,
+        # "obb_volume": obb.volume,
+        # "aabb_volume": aabb_volume,
+        # "footprint_perimeter": shape.length,
+        # "obb_width": S,
+        # "obb_length": L,
+        # "surface_area": mesh.area,
+        # "ground_area": area["GroundSurface"],
+        # "wall_area": area["WallSurface"],
+        # "roof_area": area["RoofSurface"],
+        # "ground_point_count": point_count["GroundSurface"],
+        # "wall_point_count": point_count["WallSurface"],
+        # "roof_point_count": point_count["RoofSurface"],
+        # "ground_surface-count": surface_count["GroundSurface"],
+        # "wall_surface_count": surface_count["WallSurface"],
+        # "roof_surface_count": surface_count["RoofSurface"],
+        # "max_Z": height_stats["Max"],
+        # "min_Z": height_stats["Min"],
+        # "height_range": height_stats["Range"],
+        # "mean_Z": height_stats["Mean"],
+        # "median_Z": height_stats["Median"],
+        # "std_Z": height_stats["Std"],
+        # "mode_Z": height_stats["Mode"] if height_stats["ModeStatus"] == "Y" else "NA",
+        # "ground_Z": ground_z,
+        # "orientation_values": str(bin_count),
+        # "orientation_edges": str(bin_edges),
+        # "errors": str(errors),
+        # "valid": len(errors) == 0,
+        # "hole_count": tri_mesh.n_open_edges,
         "geometry": shape
     }
 
     if custom_indices is None or len(custom_indices) > 0:
-        voxel = pv.voxelize(tri_mesh, density=density_3d, check_surface=False)
-        grid = voxel.cell_centers().points
+        # voxel = pv.voxelize(tri_mesh, density=density_3d, check_surface=False)
+        # grid = voxel.cell_centers().points
 
         shared_area = 0
 
-        closest_distance = 10000
+        # closest_distance = 10000
 
         if len(neighbours) > 0:
             # Get neighbour meshes
@@ -474,55 +474,55 @@ def process_building(building,
             shared_area = sum([wall["area"][0] for wall in walls])
 
             # Find the closest distance
-            for mesh in n_meshes:
-                mesh.compute_implicit_distance(fixed, inplace=True)
+            # for mesh in n_meshes:
+            #     mesh.compute_implicit_distance(fixed, inplace=True)
                             
-                closest_distance = min(closest_distance, np.min(mesh["implicit_distance"]))
+            #     closest_distance = min(closest_distance, np.min(mesh["implicit_distance"]))
             
-            closest_distance = max(closest_distance, 0)
+            # closest_distance = max(closest_distance, 0)
 
         builder = StatValuesBuilder(values, custom_indices)
 
-        builder.add_index("2d_grid_point_count", lambda: len(si.create_grid_2d(shape, density=density_2d)))
-        builder.add_index("3d_grid_point_count", lambda: len(grid))
+        # builder.add_index("2d_grid_point_count", lambda: len(si.create_grid_2d(shape, density=density_2d)))
+        # builder.add_index("3d_grid_point_count", lambda: len(grid))
 
-        builder.add_index("circularity_2d", lambda: si.circularity(shape))
-        builder.add_index("hemisphericality_3d", lambda: si.hemisphericality(fixed))
-        builder.add_index("convexity_2d", lambda: shape.area / shape.convex_hull.area)
-        builder.add_index("convexity_3d", lambda: fixed.volume / ch_volume)
-        builder.add_index("convexity_3d", lambda: fixed.volume / ch_volume)
-        builder.add_index("fractality_2d", lambda: si.fractality_2d(shape))
-        builder.add_index("fractality_3d", lambda: si.fractality_3d(fixed))
-        builder.add_index("rectangularity_2d", lambda: shape.area / shape.minimum_rotated_rectangle.area)
-        builder.add_index("rectangularity_3d", lambda: fixed.volume / obb.volume)
-        builder.add_index("squareness_2d", lambda: si.squareness(shape))
-        builder.add_index("cubeness_3d", lambda: si.cubeness(fixed))
-        builder.add_index("horizontal_elongation", lambda: si.elongation(S, L))
-        builder.add_index("min_vertical_elongation", lambda: si.elongation(L, height_stats["Max"]))
-        builder.add_index("max_vertical_elongation", lambda: si.elongation(S, height_stats["Max"]))
-        builder.add_index("form_factor_3D", lambda: shape.area / math.pow(fixed.volume, 2/3))
-        builder.add_index("equivalent_rectangularity_index_2d", lambda: si.equivalent_rectangular_index(shape))
-        builder.add_index("equivalent_prism_index_3d", lambda: si.equivalent_prism_index(fixed, obb))
-        builder.add_index("proximity_index_2d_", lambda: si.proximity_2d(shape, density=density_2d))
-        builder.add_index("proximity_index_3d", lambda: si.proximity_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
-        builder.add_index("exchange_index_2d", lambda: si.exchange_2d(shape))
-        builder.add_index("exchange_index_3d", lambda: si.exchange_3d(tri_mesh, density=density_3d))
-        builder.add_index("spin_index_2d", lambda: si.spin_2d(shape, density=density_2d))
-        builder.add_index("spin_index_3d", lambda: si.spin_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
-        builder.add_index("perimeter_index_2d", lambda: si.perimeter_index(shape))
-        builder.add_index("circumference_index_3d", lambda: si.circumference_index_3d(tri_mesh))
-        builder.add_index("depth_index_2d", lambda: si.depth_2d(shape, density=density_2d))
-        builder.add_index("depth_index_3d", lambda: si.depth_3d(tri_mesh, density=density_3d) if len(grid) > 2 else "NA")
-        builder.add_index("girth_index_2d", lambda: si.girth_2d(shape))
-        builder.add_index("girth_index_3d", lambda: si.girth_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
-        builder.add_index("dispersion_index_2d", lambda: si.dispersion_2d(shape, density=density_2d))
-        builder.add_index("dispersion_index_3d", lambda: si.dispersion_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
-        builder.add_index("range_index_2d", lambda: si.range_2d(shape))
-        builder.add_index("range_index_3d", lambda: si.range_3d(tri_mesh))
-        builder.add_index("roughness_index_2d", lambda: si.roughness_index_2d(shape, density=density_2d))
-        builder.add_index("roughness_index_3d", lambda: si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 2 else "NA")
+        # builder.add_index("circularity_2d", lambda: si.circularity(shape))
+        # builder.add_index("hemisphericality_3d", lambda: si.hemisphericality(fixed))
+        # builder.add_index("convexity_2d", lambda: shape.area / shape.convex_hull.area)
+        # builder.add_index("convexity_3d", lambda: fixed.volume / ch_volume)
+        # builder.add_index("convexity_3d", lambda: fixed.volume / ch_volume)
+        # builder.add_index("fractality_2d", lambda: si.fractality_2d(shape))
+        # builder.add_index("fractality_3d", lambda: si.fractality_3d(fixed))
+        # builder.add_index("rectangularity_2d", lambda: shape.area / shape.minimum_rotated_rectangle.area)
+        # builder.add_index("rectangularity_3d", lambda: fixed.volume / obb.volume)
+        # builder.add_index("squareness_2d", lambda: si.squareness(shape))
+        # builder.add_index("cubeness_3d", lambda: si.cubeness(fixed))
+        # builder.add_index("horizontal_elongation", lambda: si.elongation(S, L))
+        # builder.add_index("min_vertical_elongation", lambda: si.elongation(L, height_stats["Max"]))
+        # builder.add_index("max_vertical_elongation", lambda: si.elongation(S, height_stats["Max"]))
+        # builder.add_index("form_factor_3D", lambda: shape.area / math.pow(fixed.volume, 2/3))
+        # builder.add_index("equivalent_rectangularity_index_2d", lambda: si.equivalent_rectangular_index(shape))
+        # builder.add_index("equivalent_prism_index_3d", lambda: si.equivalent_prism_index(fixed, obb))
+        # builder.add_index("proximity_index_2d_", lambda: si.proximity_2d(shape, density=density_2d))
+        # builder.add_index("proximity_index_3d", lambda: si.proximity_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        # builder.add_index("exchange_index_2d", lambda: si.exchange_2d(shape))
+        # builder.add_index("exchange_index_3d", lambda: si.exchange_3d(tri_mesh, density=density_3d))
+        # builder.add_index("spin_index_2d", lambda: si.spin_2d(shape, density=density_2d))
+        # builder.add_index("spin_index_3d", lambda: si.spin_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        # builder.add_index("perimeter_index_2d", lambda: si.perimeter_index(shape))
+        # builder.add_index("circumference_index_3d", lambda: si.circumference_index_3d(tri_mesh))
+        # builder.add_index("depth_index_2d", lambda: si.depth_2d(shape, density=density_2d))
+        # builder.add_index("depth_index_3d", lambda: si.depth_3d(tri_mesh, density=density_3d) if len(grid) > 2 else "NA")
+        # builder.add_index("girth_index_2d", lambda: si.girth_2d(shape))
+        # builder.add_index("girth_index_3d", lambda: si.girth_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        # builder.add_index("dispersion_index_2d", lambda: si.dispersion_2d(shape, density=density_2d))
+        # builder.add_index("dispersion_index_3d", lambda: si.dispersion_3d(tri_mesh, grid, density=density_3d) if len(grid) > 2 else "NA")
+        # builder.add_index("range_index_2d", lambda: si.range_2d(shape))
+        # builder.add_index("range_index_3d", lambda: si.range_3d(tri_mesh))
+        # builder.add_index("roughness_index_2d", lambda: si.roughness_index_2d(shape, density=density_2d))
+        # builder.add_index("roughness_index_3d", lambda: si.roughness_index_3d(tri_mesh, grid, density_2d) if len(grid) > 2 else "NA")
         builder.add_index("shared_walls_area", lambda: shared_area)
-        builder.add_index("closest_distance", lambda: closest_distance)
+        # builder.add_index("closest_distance", lambda: closest_distance)
 
     return obj, values
 
