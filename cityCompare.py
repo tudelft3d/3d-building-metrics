@@ -175,9 +175,11 @@ def main(source,
                 if not co_id in cm_dest["CityObjects"]:
                     print(f"WARNING: {co_id} missing from destination file.")
                     progress.total -= 1
+                    continue
                 
                 if not filter is None and filter != co_id:
                     progress.total -= 1
+                    continue
 
                 future = pool.submit(compare,
                                      co_id,
