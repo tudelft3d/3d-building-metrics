@@ -166,8 +166,6 @@ def point_zenith(p):
 def compute_stats(values, percentile = 90, percentage = 75):
     """
     Returns the stats (mean, median, max, min, range etc.) for a set of values.
-    
-    Author: Anna Labetski
     """
     hDic = {'Mean': np.mean(values), 'Median': np.median(values),
     'Max': max(values), 'Min': min(values), 'Range': (max(values) - min(values)),
