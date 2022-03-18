@@ -1,6 +1,6 @@
-# UM3D
+# 3DBM
 
-Urban Morphology in 3D. Elevating urban morphology to the next level 😉
+3D Building Metrics. Elevating geometric analysis for urban morphology, solar potential, CFD etc to the next level 😉
 
 ## Installation
 
@@ -14,7 +14,7 @@ Then take your time and install [pymesh](https://pymesh.readthedocs.io/en/latest
 
 ## Wat is het?
 
-A cool script that computes a lot.
+A cool script that computes a lot metrics from 3D geometries (mostly intended for buildings).
 
 ## Omg, how amazing! Any issues?
 
@@ -56,3 +56,23 @@ Tuurlijk! Just:
 ```
 python cityPlot.py [file_path]
 ```
+
+## Tutorial please!
+
+1) Download or `git clone` this repository.
+
+2) Install all dependencies: `pip install -r requirements.txt`.
+
+3) Download a tile from 3D BAG: `wget --header='Accept-Encoding: gzip' https://data.3dbag.nl/cityjson/v210908_fd2cee53/3dbag_v210908_fd2cee53_5910.json`
+
+4) Run the stats on the data: `python cityStats.py 3dbag_v210908_fd2cee53_5910.json -o 5910.csv`
+
+5) The resutling file `5910.csv` contains all metrics computed for this tile.
+
+You may also run this with a [val3dity](http://geovalidation.bk.tudelft.nl/val3dity/) report. You may download the val3dity report as a json file from the aforementioned website. Assuming the report's filename is `report.json` you can run:
+
+```
+python cityStats.py 3dbag_v210908_fd2cee53_5910.json -v report.json -o 5910.csv
+```
+
+Then the result will contain more info related to the validation of geometries.
