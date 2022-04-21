@@ -16,6 +16,19 @@ Then take your time and install [pymesh](https://pymesh.readthedocs.io/en/latest
 
 A cool script that computes a lot metrics from 3D geometries (mostly intended for buildings).
 
+The following metrics are computed:
+
+| Type | Metrics |
+| --- | --- |
+| Geometric Properties | Number of vertices, Number of surfaces, Number of vertices by semantic type (\ie\ ground, roof, wall), Number of surfaces by semantic type (\ie\ ground, roof, wall), Min/Max/Range/Mean/Median/Std/Mode height |
+| Derived Properties | Footprint perimeter, Volume, Volume of convex hull, Volume of Object-Oriented Bounding Box, Volume of Axis-Oriented Bounding Box, Volume of voxelised building, Length and width of the Object-Oriented Bounding Box, Surface area, Surface area by semantic surface, Horizontal elongation, Min/Max vertical elongation, Form factor |
+| Spatial distribution | Shared walls, Nearest neighbour |
+| Shape indices | Circularity/Hemisphericality<sup>\*</sup>, Convexity 2D/3D<sup>\*</sup>, Fractality 2D/3D<sup>\*</sup>, Rectangularity/Cuboidness<sup>\*</sup>, Squareness/Cubeness<sup>\*</sup>, Cohesion 2D/3D<sup>\*</sup>, Proximity 2D/3D<sup>+</sup>, Exchange 2D/3D<sup>+</sup>, Spin 2D/3D<sup>+</sup>, Perimeter/Circumference<sup>\*</sup>, Depth 2D/3D<sup>+</sup>, Girth 2D/3D<sup>+</sup>, Dispersion 2D/3D<sup>x</sup>, Range 2D/3D<sup>\*</sup>, Equivalent Rectangular/Cuboid<sup>\*</sup>, Roughness<sup>x</sup> |
+
+- <sup>\*</sup> formula-based index, size-independent by definition
+- <sup>+</sup> index based on interior grid points (discretised), normalised
+- <sup>x</sup> index based on surface grid points (discretised), normalised
+
 ## Omg, how amazing! Any issues?
 
 Yeah:
