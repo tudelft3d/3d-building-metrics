@@ -41,7 +41,7 @@ def extrude(shape, min, max):
     t = np.mean(pts, axis=0)
     mesh.points = mesh.points - t
     
-    mesh = mesh.extrude([0.0, 0.0, max - min])
+    mesh = mesh.extrude([0.0, 0.0, max - min], capping=True)
     
     # Transform back to origina coords
     # mesh.points = mesh.points + t
