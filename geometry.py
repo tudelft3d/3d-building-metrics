@@ -1,7 +1,6 @@
 """Module to manipulate geometry of pyvista meshes"""
 
 import numpy as np
-from pymeshfix import MeshFix
 import pyvista as pv
 from helpers.geometry import plane_params, project_mesh, to_3d
 from scipy.spatial import distance_matrix
@@ -36,6 +35,9 @@ def extrude(shape, min, max):
     points = np.array([[p[0], p[1], min] for p in shape.boundary.coords])
     mesh = pv.PolyData(points).delaunay_2d()
 
+    if min == max:
+        return mesh
+
     # Transform to 0, 0, 0 to avoid precision issues
     pts = mesh.points
     t = np.mean(pts, axis=0)
@@ -46,9 +48,7 @@ def extrude(shape, min, max):
     # Transform back to origina coords
     # mesh.points = mesh.points + t
 
-    m = MeshFix(mesh.clean().triangulate())
-    m.repair()
-    mesh = m.mesh
+    mesh = mesh.clean().triangulate()
 
     return mesh
 
