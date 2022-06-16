@@ -3,11 +3,16 @@
 import math
 from shapely.geometry import Point, MultiPoint, Polygon
 from helpers.geometry import surface_normal
-from helpers.mesh import to_pymesh, to_pyvista, intersect
+try:
+    from helpers.mesh import to_pymesh, to_pyvista, intersect
+    pymesh_exists = True
+except:
+    print("WARNING: pymesh not found! Exchange index calculation will be omitted...")
+    pymesh_exists = False
 import miniball
 import numpy as np
 import pyvista as pv
-import pymesh
+# import pymesh
 
 def circularity(shape):
     """Returns circularity 2D for a given polygon"""
@@ -283,6 +288,9 @@ def exchange_3d(mesh, evs=None, density=0.25, engine="igl"):
     density: If no evs is provided, it is used to create a grid to compute the center of mass
     enginge: The engine for the boolean operations
     """
+
+    if not pymesh_exists:
+        return -1
     
     if evs is None:
         voxel = pv.voxelize(mesh, density=density, check_surface=False)
