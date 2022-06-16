@@ -64,7 +64,7 @@ def to_polydata(geom, vertices):
         else:
             values = semantics["values"][0]
         
-        mesh.cell_arrays["semantics"] = [semantics["surfaces"][i]["type"] for i in values]
+        mesh.cell_data["semantics"] = [semantics["surfaces"][i]["type"] for i in values]
     
     return mesh
 

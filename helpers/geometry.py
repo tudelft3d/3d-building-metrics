@@ -60,8 +60,8 @@ def triangulate(mesh):
         triangles = np.hstack([[3] + list(t) for t in result.reshape(-1,3)])
         
         new_mesh = pv.PolyData(pts, triangles, n_faces=t_count)
-        for k in mesh.cell_arrays:
-            new_mesh[k] = [mesh.cell_arrays[k][i] for _ in np.arange(t_count)]
+        for k in mesh.cell_data:
+            new_mesh[k] = [mesh.cell_data[k][i] for _ in np.arange(t_count)]
         
         final_mesh = final_mesh + new_mesh
     

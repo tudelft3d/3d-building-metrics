@@ -92,7 +92,7 @@ for obj in cm["CityObjects"]:
     if "semantics" in geom:
         # Compute area per surface type
         sized = dataset.compute_cell_sizes()
-        surface_areas = sized.cell_arrays["Area"]
+        surface_areas = sized.cell_data["Area"]
         
         semantics = geom["semantics"]
         for i in range(len(surface_areas)):

@@ -10,10 +10,10 @@ from sklearn.cluster import AgglomerativeClustering
 def get_points_of_type(mesh, surface_type):
     """Returns the points that belong to the given surface type"""
 
-    if not "semantics" in mesh.cell_arrays:
+    if not "semantics" in mesh.cell_data:
         return []
     
-    idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
+    idxs = [s == surface_type for s in mesh.cell_data["semantics"]]
 
     points = np.array([mesh.cell_points(i) for i in range(mesh.number_of_cells)], dtype=object)
 
@@ -77,18 +77,18 @@ def area_by_surface(mesh, tri_mesh=None):
     if tri_mesh is None:
         tri_mesh = mesh.triangulate()
 
-    if "semantics" in mesh.cell_arrays:
+    if "semantics" in mesh.cell_data:
         # Compute area per surface type
         sized = tri_mesh.compute_cell_sizes()
-        surface_areas = sized.cell_arrays["Area"]
+        surface_areas = sized.cell_data["Area"]
 
         points_per_cell = np.array([mesh.cell_n_points(i) for i in range(mesh.number_of_cells)])
 
         for surface_type in area:
-            triangle_idxs = [s == surface_type for s in tri_mesh.cell_arrays["semantics"]]
+            triangle_idxs = [s == surface_type for s in tri_mesh.cell_data["semantics"]]
             area[surface_type] = sum(surface_areas[triangle_idxs])
 
-            face_idxs = [s == surface_type for s in mesh.cell_arrays["semantics"]]
+            face_idxs = [s == surface_type for s in mesh.cell_data["semantics"]]
 
             point_count[surface_type] = sum(points_per_cell[face_idxs])
             surface_count[surface_type] = sum(face_idxs)

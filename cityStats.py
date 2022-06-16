@@ -41,8 +41,8 @@ def get_wall_bearings(dataset, num_bins):
 
     normals = dataset.face_normals
 
-    if "semantics" in dataset.cell_arrays:
-        wall_idxs = [s == "WallSurface" for s in dataset.cell_arrays["semantics"]]
+    if "semantics" in dataset.cell_data:
+        wall_idxs = [s == "WallSurface" for s in dataset.cell_data["semantics"]]
     else:
         wall_idxs = [n[2] == 0 for n in normals]
 
@@ -51,7 +51,7 @@ def get_wall_bearings(dataset, num_bins):
     azimuth = [point_azimuth(n) for n in normals]
 
     sized = dataset.compute_cell_sizes()
-    surface_areas = sized.cell_arrays["Area"][wall_idxs]
+    surface_areas = sized.cell_data["Area"][wall_idxs]
 
     return get_bearings(azimuth, num_bins, surface_areas)
 
@@ -60,8 +60,8 @@ def get_roof_bearings(dataset, num_bins):
 
     normals = dataset.face_normals
 
-    if "semantics" in dataset.cell_arrays:
-        roof_idxs = [s == "RoofSurface" for s in dataset.cell_arrays["semantics"]]
+    if "semantics" in dataset.cell_data:
+        roof_idxs = [s == "RoofSurface" for s in dataset.cell_data["semantics"]]
     else:
         roof_idxs = [n[2] > 0 for n in normals]
 
@@ -71,7 +71,7 @@ def get_roof_bearings(dataset, num_bins):
     yz_angle = [azimuth(n[1], n[2]) for n in normals]
 
     sized = dataset.compute_cell_sizes()
-    surface_areas = sized.cell_arrays["Area"][roof_idxs]
+    surface_areas = sized.cell_data["Area"][roof_idxs]
 
     xz_counts, bin_edges = get_bearings(xz_angle, num_bins, surface_areas)
     yz_counts, bin_edges = get_bearings(yz_angle, num_bins, surface_areas)
