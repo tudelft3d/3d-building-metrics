@@ -89,3 +89,22 @@ python cityStats.py 3dbag_v210908_fd2cee53_5910.json -v report.json -o 5910.csv
 ```
 
 Then the result will contain more info related to the validation of geometries.
+
+## If you use 3DBM in a scientific context, please cite this article:
+
+Anna Labetski, Stelios Vitalis, Filip Biljecki, Ken Arroyo Ohori & Jantien Stoter (2022) 3D building metrics for urban morphology, International Journal of Geographical Information Science, DOI: 10.1080/13658816.2022.2103818 
+
+[Article available here.](https://doi.org/10.1080/13658816.2022.2103818)
+
+```
+@article{Labetski2022,
+	Author = {Anna Labetski and Stelios Vitalis and Filip Biljecki and Ken {Arroyo Ohori} and Jantien Stoter},
+	Title = {{3D} building metrics for urban morphology},
+	Journal = {International Journal of Geographical Information Science},
+	Volume = {0},
+	Number = {0},
+	Pages = {1-32},
+	Year  = {2022},
+	Publisher = {Taylor & Francis},
+	Doi = {10.1080/13658816.2022.2103818}
+```
