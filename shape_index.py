@@ -244,7 +244,7 @@ def proximity_2d(shape, density=1, grid=None):
     
     centroid = shape.centroid
     
-    return 2 / 3 * math.sqrt(shape.area / math.pi) / np.mean([centroid.distance(p) for p in grid])
+    return 2 / 3 * math.sqrt(shape.area / math.pi) / np.mean([centroid.distance(p) for p in grid.geoms])
 
 def proximity_3d(mesh, grid=None, density=1, check_surface=False):
     """Returns the cohesion index in 3D for a given mesh"""

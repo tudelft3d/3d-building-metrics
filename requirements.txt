@@ -1,5 +1,5 @@
 numpy
-pyvista
+pyvista===0.36.1
 scipy
 cython
 pymeshfix
@@ -7,7 +7,7 @@ click
 pandas
 geopandas
 tqdm
-shapely
+shapely===1.8.5
 jupyter
 mapbox-earcut
 python-polylabel
