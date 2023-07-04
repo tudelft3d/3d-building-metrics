@@ -15,3 +15,4 @@ miniball
 ipygany
 rtree
 scikit-learn
+pytest
