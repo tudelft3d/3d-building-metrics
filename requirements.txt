@@ -16,3 +16,4 @@ ipygany
 rtree
 scikit-learn
 pytest
+pytest-cov
