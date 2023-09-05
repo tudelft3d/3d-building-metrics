@@ -4,10 +4,11 @@
 
 ## Installation
 
-You need to install all dependencies first:
+Install the package from the repository:
 
 ```
-pip install -r requirements.txt
+cd urban-morphology-3d
+pip install .
 ```
 
 Then take your time and install [pymesh](https://pymesh.readthedocs.io/en/latest/installation.html).

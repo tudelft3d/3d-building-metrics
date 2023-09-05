@@ -2,7 +2,7 @@
 
 import numpy as np
 from shapely.geometry import Polygon, MultiPolygon
-from helpers.geometry import project_2d, surface_normal, triangulate, triangulate_polygon
+from urban_morphology_3d.helpers.geometry import project_2d, surface_normal, triangulate, triangulate_polygon
 import pyvista as pv
 
 def get_surface_boundaries(geom):
