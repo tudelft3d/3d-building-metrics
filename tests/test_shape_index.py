@@ -1,4 +1,4 @@
-import shape_index
+from building_metrics_3d import shape_index
 import pyvista as pv
 from pytest import approx
 from shapely.geometry import Point

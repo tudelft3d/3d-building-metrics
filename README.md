@@ -4,10 +4,11 @@
 
 ## Installation
 
-You need to install all dependencies first:
+Install the package from the repository:
 
 ```
-pip install -r requirements.txt
+cd urban-morphology-3d
+pip install .
 ```
 
 Then take your time and install [pymesh](https://pymesh.readthedocs.io/en/latest/installation.html).
@@ -74,7 +75,7 @@ python cityPlot.py [file_path]
 
 1) Download or `git clone` this repository.
 
-2) Install all dependencies: `pip install -r requirements.txt`.
+2) Install the package from the source directory: `pip install .`. To install for development: `pip install -e ".[dev]"`
 
 3) Download a tile from 3D BAG: `wget --header='Accept-Encoding: gzip' https://data.3dbag.nl/cityjson/v210908_fd2cee53/3dbag_v210908_fd2cee53_5910.json`
 

@@ -2,8 +2,8 @@ import click
 import json
 import numpy as np
 from tqdm import tqdm
-import cityjson
-from helpers.mesh import difference, symmetric_difference, to_pymesh, to_pyvista, intersect
+from building_metrics_3d import cityjson
+from building_metrics_3d.helpers.mesh import difference, symmetric_difference, to_pymesh, to_pyvista, intersect
 import pyvista as pv
 import pandas as pd
 import pymesh

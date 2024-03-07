@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "3d-building-metrics"
+version = "2024.1006"
+description = "3D Building Metrics"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+urls = { github = "https://github.com/tudelft3d/3d-building-metrics" }
+dependencies = [
+    "click==8.1.6",
+    "Cython==3.0.0",
+    "geopandas==0.13.2",
+    "ipygany",
+    "jupyter",
+    "mapbox-earcut==1.0.1",
+    "miniball==1.2.0",
+    "numpy==1.24.4",
+    "pandas==2.0.3",
+    "pymesh",
+    "pymeshfix==0.16.2",
+    "python-polylabel",
+    "pyvista==0.36.1",
+    "Rtree==1.0.1",
+    "scikit-learn==1.3.0",
+    "scipy==1.10.1",
+    "shapely==1.8.5",
+    "tqdm==4.65.0",
+]
+optional-dependencies = { dev = ["bumpver", "tox", "pytest", "pytest-cov"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.bumpver]
+current_version = "2024.1006"
+version_pattern = "YYYY.BUILD"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'version = "{version}"',
+]
+
