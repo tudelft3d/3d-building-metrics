@@ -75,7 +75,7 @@ python cityPlot.py [file_path]
 
 1) Download or `git clone` this repository.
 
-2) Install all dependencies: `pip install -r requirements.txt`.
+2) Install the package from the source directory: `pip install .`. To install for development: `pip install -e ".[dev]"`
 
 3) Download a tile from 3D BAG: `wget --header='Accept-Encoding: gzip' https://data.3dbag.nl/cityjson/v210908_fd2cee53/3dbag_v210908_fd2cee53_5910.json`
 
