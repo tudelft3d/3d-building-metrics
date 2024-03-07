@@ -1,7 +1,7 @@
 import click
 import json
 import numpy as np
-from urban_morphology_3d.cityjson import to_triangulated_polydata
+from building_metrics_3d.cityjson import to_triangulated_polydata
 import pyvista as pv
 from tqdm import tqdm
 

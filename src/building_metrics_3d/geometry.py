@@ -2,7 +2,7 @@
 
 import numpy as np
 import pyvista as pv
-from urban_morphology_3d.helpers.geometry import plane_params, project_mesh, to_3d
+from building_metrics_3d.helpers.geometry import plane_params, project_mesh, to_3d
 from scipy.spatial import distance_matrix
 from sklearn.cluster import AgglomerativeClustering
 

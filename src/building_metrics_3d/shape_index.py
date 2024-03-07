@@ -2,9 +2,9 @@
 
 import math
 from shapely.geometry import Point, MultiPoint, Polygon
-from urban_morphology_3d.helpers.geometry import surface_normal
+from building_metrics_3d.helpers.geometry import surface_normal
 try:
-    from urban_morphology_3d.helpers.mesh import to_pymesh, to_pyvista, intersect
+    from building_metrics_3d.helpers.mesh import to_pymesh, to_pyvista, intersect
     pymesh_exists = True
 except:
     print("WARNING: pymesh not found! Exchange index calculation will be omitted...")
