@@ -24,11 +24,11 @@ def surface_normal(poly):
 def axes_of_normal(normal):
     """Returns an x-axis and y-axis on a plane of the given normal"""
     if normal[2] > 0.001 or normal[2] < -0.001:
-        x_axis = [1, 0, -normal[0]/normal[2]];
+        x_axis = [1, 0, -normal[0]/normal[2]]
     elif normal[1] > 0.001 or normal[1] < -0.001:
-        x_axis = [1, -normal[0]/normal[1], 0];
+        x_axis = [1, -normal[0]/normal[1], 0]
     else:
-        x_axis = [-normal[1] / normal[0], 1, 0];
+        x_axis = [-normal[1] / normal[0], 1, 0]
     
     x_axis = x_axis / np.linalg.norm(x_axis)
     y_axis = np.cross(normal, x_axis)
@@ -96,12 +96,12 @@ def plane_params(normal, origin, rounding=2):
     """
     a, b, c = np.round_(normal, 3)
     x0, y0, z0 = origin
-    
+
     d = -(a * x0 + b * y0 + c * z0)
-    
+
     if rounding >= 0:
         d = round(d, rounding)
-    
+
     return np.array([a, b, c, d])
 
 def project_mesh(mesh, normal, origin):
