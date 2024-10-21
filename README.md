@@ -1,5 +1,7 @@
 # 3DBM
 
+![3D Building Metrics](3DBM.png "3D Building Metrics")
+
 3D Building Metrics. Elevating geometric analysis for urban morphology, solar potential, CFD etc to the next level 😉
 
 ## Installation
